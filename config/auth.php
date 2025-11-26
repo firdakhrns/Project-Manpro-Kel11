@@ -40,6 +40,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'shared' => [
+            'driver' => 'session',
+            'provider' => 'shared_logins', 
+        ],
     ],
 
     /*
@@ -65,10 +69,10 @@ return [
             'model' => App\Models\User::class,
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'shared_logins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\SharedLogin::class, 
+        ],
     ],
 
     /*

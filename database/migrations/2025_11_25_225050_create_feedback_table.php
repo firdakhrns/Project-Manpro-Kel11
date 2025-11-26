@@ -11,21 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-    Schema::create('return_log_items', function (Blueprint $table) {
+        Schema::create('feedbacks', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('return_log_id')->constrained('return_logs')->onDelete('cascade');
-        $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
-        $table->integer('quantity');
+        $table->string('cse_id'); // Yang ngasih feedback
+        $table->string('dse_target'); // DSE yang dikasih feedback  
+        $table->enum('type', ['kritik', 'saran']);
+        $table->text('message');
+        $table->boolean('is_urgent')->default(false);
         $table->timestamps();
     });
-}
-
+    }
 
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('return_log_items');
+        Schema::dropIfExists('feedbacks');
     }
 };

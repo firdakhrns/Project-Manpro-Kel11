@@ -11,12 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-    Schema::create('return_logs', function (Blueprint $table) {
+    Schema::create('return_log_items', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-        $table->foreignId('outlet_id')->constrained('outlets')->onDelete('cascade');
-        $table->date('date');
-        $table->text('notes')->nullable();
+        $table->foreignId('return_log_id')->constrained('return_logs')->onDelete('cascade');
+        $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+        $table->integer('quantity');
         $table->timestamps();
     });
 }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('return_logs');
+        Schema::dropIfExists('return_log_items');
     }
 };
