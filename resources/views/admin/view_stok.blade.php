@@ -48,7 +48,6 @@
             border: 1px solid #d1d5db; 
             border-radius: 6px; 
             box-sizing: border-box;
-            font-size: 0.95rem;
         }
 
         .category-buttons-wrapper { 
@@ -101,7 +100,7 @@
             <p class="text-gray-700 text-center mb-8">Pilih DSE dan Outlet sebelum mencatat jumlah stok.</p>
         </div>
 
-        <form id="stockFormAdmin" action="{{ route('admin.stok.store') }}" method="POST">
+        <form id="stockFormAdmin" action="{{ route('admin.view_stok') }}" method="POST">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -187,6 +186,20 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const dseSelect = document.getElementById('dse_id');
+            const outletSelect = document.getElementById('outlet_id_select');
+
+            const form = document.getElementById('stockFormAdmin');
+            if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!dseSelect.value || !outletSelect.value) {
+                    e.preventDefault();
+                    alert('Harap pilih DSE dan Outlet terlebih dahulu!');
+                    return false;
+                }
+            });
+        }
+
             const categoryButtons = document.querySelectorAll('.category-button');
             const kpSection = document.getElementById('kartu-perdana-section');
             const voucherSection = document.getElementById('voucher-section');

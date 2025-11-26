@@ -107,6 +107,23 @@
             <p class="text-gray-700 text-center mb-8">Silakan diisi dengan data sebenar-benarnya</p>
         </div>
 
+        @if(session('success'))
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong class="font-bold">Sukses!</strong>
+            <span class="block sm:inline">{{ session('success') }}</span>
+        </div>
+        @endif
+
+        @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span class="block sm:inline">{{ session('error') }}</span>
+        </div>
+        @endif
+
+        <form action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
+            @csrf
+
         <form action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
 
@@ -144,10 +161,11 @@
                 </div>
 
                 <div>
+                    <!-- AREA UPLOAD FOTO DEPAN - DENGAN ID YANG BENAR -->
                     <div class="input-group mb-6">
                         <label for="tampak_depan_outlet_file">Tampak Depan Outlet</label>
                         <label class="upload-area" for="tampak_depan_outlet_file">
-                            <div class="upload-area-content">
+                            <div class="upload-area-content" id="filename_depan"> <!-- ID DITAMBAHKAN DI SINI -->
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
@@ -156,10 +174,12 @@
                             <input type="file" id="tampak_depan_outlet_file" name="tampak_depan_outlet_file" accept="image/*" required>
                         </label>
                     </div>
+                    
+                    <!-- AREA UPLOAD FOTO ETALASE - DENGAN ID YANG BENAR -->
                     <div class="input-group">
                         <label for="foto_etalase_file">Foto Etalase</label>
                         <label class="upload-area" for="foto_etalase_file">
-                            <div class="upload-area-content">
+                            <div class="upload-area-content" id="filename_etalase"> <!-- ID DITAMBAHKAN DI SINI -->
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
@@ -175,6 +195,43 @@
                 <button type="submit" class="submit-button">SUBMIT</button>
             </div>
         </form>
+
+        <!-- SCRIPT JAVASCRIPT DITARUH DI SINI - SETELAH FORM TAPI SEBELUM TUTUP BODY -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const fileInputDepan = document.getElementById('tampak_depan_outlet_file');
+                const fileInputEtalase = document.getElementById('foto_etalase_file');
+
+                function updateFileNameDisplay(inputElement, displayId) {
+                    const displayElement = document.getElementById(displayId);
+                    
+                    inputElement.addEventListener('change', function() {
+                        if (this.files.length > 0) {
+                            const fileName = this.files[0].name;
+                            // Tampilkan nama file yang dipilih dengan icon centang
+                            displayElement.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-green-600 font-medium truncate">${fileName}</span>
+                            `;
+                        } else {
+                            // Kembalikan ke tampilan default jika file dibatalkan
+                            displayElement.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                <span>Unggah Foto</span>
+                            `;
+                        }
+                    });
+                }
+
+                updateFileNameDisplay(fileInputDepan, 'filename_depan');
+                updateFileNameDisplay(fileInputEtalase, 'filename_etalase');
+            });
+        </script>
+        
     </div>
 </body>
 </html>

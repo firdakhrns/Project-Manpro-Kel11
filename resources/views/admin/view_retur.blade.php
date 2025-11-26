@@ -36,11 +36,24 @@
             left: 20px;
             z-index: 11;
         }
-        .back-button-circle:hover { background-color: #b71c1c; }
+        .back-button-circle:hover { 
+            background-color: #b71c1c; 
+        }
 
         /* Styling Input dan Label */
-        .input-group label { font-weight: 600; margin-bottom: 8px; display: block; color: #374151; }
-        .input-group input, .input-group select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
+        .input-group label { 
+            font-weight: 600; 
+            margin-bottom: 8px; 
+            display: block; 
+            color: #374151; 
+        }
+        .input-group input, .input-group select { 
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 1px solid #d1d5db; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+        }
 
         /* Category Toggle */
         .category-buttons-wrapper { background-color: #e5e7eb; padding: 4px; border-radius: 25px; display: inline-flex; }
@@ -99,7 +112,7 @@
             <p class="text-gray-700 text-center mb-8">Pilih DSE dan Outlet sebelum mencatat jumlah retur.</p>
         </div>
 
-        <form id="returFormAdmin" action="{{ route('admin.retur.store') }}" method="POST">
+        <form id="returFormAdmin" action="{{ route('admin.view_retur') }}" method="POST">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -174,7 +187,50 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // ... (JavaScript sama dengan input stok admin)
+            const dseSelect = document.getElementById('dse_id');
+        const outletSelect = document.getElementById('outlet_id_select');
+
+    
+        const form = document.getElementById('returFormAdmin');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!dseSelect.value || !outletSelect.value) {
+                    e.preventDefault();
+                    alert('Harap pilih DSE dan Outlet terlebih dahulu!');
+                    return false;
+                }
+            });
+        }
+
+            const categoryButtons = document.querySelectorAll('.category-button');
+            const kpSection = document.getElementById('kartu-perdana-section');
+            const voucherSection = document.getElementById('voucher-section');
+
+            function showCategory(category) {
+                if (category === 'all') {
+                    kpSection.style.display = 'block';
+                    voucherSection.style.display = 'block';
+                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr 2fr';
+                } else if (category === 'kartu-perdana') {
+                    kpSection.style.display = 'block';
+                    voucherSection.style.display = 'none';
+                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
+                } else if (category === 'voucher') {
+                    kpSection.style.display = 'none';
+                    voucherSection.style.display = 'block';
+                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
+                }
+            }
+
+            categoryButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    categoryButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    showCategory(this.dataset.category);
+                });
+            });
+
+            showCategory('all');
         });
     </script>
 </body>
