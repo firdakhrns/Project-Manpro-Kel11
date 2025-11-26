@@ -92,66 +92,137 @@
         </div>
         
         <div class="bg-white p-12 login-card">
-            
+
+           
+
             <h1 class="text-4xl font-extrabold mb-2">Selamat Datang!</h1>
+
             <p class="text-gray-700 mb-8">Silakan Masuk ke Akun Anda</p>
 
+
+
             @if ($errors->any())
+
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+
                     @foreach ($errors->all() as $error)
+
                         <p>{{ $error }}</p>
+
                     @endforeach
+
                 </div>
+
             @endif
+
+
 
             @if (session('error'))
+
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+
                     {{ session('error') }}
+
                 </div>
+
             @endif
 
-            <form method="POST" action="{{ route('login') }}">
+
+
+            <!-- PERBAIKAN: Gunakan URL langsung -->
+
+            <form method="POST" action="/login">
+
                 @csrf
 
+
+
+                <!-- ID DSE Field -->
+
                 <div class="mb-5">
+
                     <label class="block text-sm font-bold text-gray-800 mb-1">
+
                         ID DSE
+
                     </label>
-                    <input 
-                        type="text" 
-                        name="identifier" 
-                        class="block w-full px-3 py-2 border border-gray-300 rounded-md outline-none input-focus-im3" 
+
+                    <input
+
+                        type="text"
+
+                        name="dse_id"  
+
+                        class="block w-full px-3 py-2 border border-gray-300 focus:border-blue-600 rounded-md outline-none"
+
                         placeholder="Masukkan ID DSE / Username Admin"
-                        required 
+
+                        required
+
                         autofocus
+
                         value="{{ old('identifier') }}"
+
                     >
+
                 </div>
+
+
+
+                <!-- Password Field -->
 
                 <div class="mb-7">
+
                     <div class="flex justify-between items-center">
+
                         <label class="block text-sm font-bold text-gray-800 mb-1">
+
                             Kata Sandi
+
                         </label>
+
                         <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Lupa kata sandi?</a>
+
                     </div>
-                    <input 
-                        type="password" 
-                        name="password" 
-                        class="block w-full px-3 py-2 border border-gray-300 rounded-md outline-none input-focus-im3" 
+
+                    <input
+
+                        type="password"
+
+                        name="password"
+
+                        class="block w-full px-3 py-2 border border-gray-300 focus:border-blue-600 rounded-md outline-none"
+
                         placeholder="Masukkan Kata Sandi"
-                        required 
+
+                        required
+
                     >
+
                 </div>
 
+
+
+                <!-- Login Button -->
+
                 <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-md transition duration-150 shadow-md" style="background-color: #E21B21;">
+
                     MASUK
+
                 </button>
+
             </form>
 
+
+
         </div>
-        
+
+       
+
     </div>
 
+
+
 </body>
+
 </html>
