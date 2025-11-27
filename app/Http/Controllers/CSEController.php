@@ -13,18 +13,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; 
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CSEController extends Controller
 {
-    /**
-     * View stok semua DSE di region CSE
-     */
-    /**
- * View stok semua DSE di region CSE
- */
-/**
- * View stok semua DSE di region CSE dengan filter
- */
+
 public function viewStok(Request $request)
 {
     $userRegion = Auth::guard('shared')->user()->region;
@@ -63,18 +56,22 @@ public function viewStok(Request $request)
         $dseId = $log->username_id;
         
         foreach ($log->items as $item) {
-            $productName = $item->product->product_name;
-            
-            if (!in_array($productName, $productHeaders)) {
-                $productHeaders[] = $productName;
-            }
-            
-            if (!isset($pivotData[$dseId])) {
-                $pivotData[$dseId] = array_fill_keys($productHeaders, 0);
-            }
-            
-            $pivotData[$dseId][$productName] += $item->quantity;
-        }
+    $productName = $item->product->product_name;
+    
+    if (!in_array($productName, $productHeaders)) {
+        $productHeaders[] = $productName;
+    }
+    
+    if (!isset($pivotData[$dseId])) {
+        $pivotData[$dseId] = [];
+    }
+    
+    if (!isset($pivotData[$dseId][$productName])) {
+        $pivotData[$dseId][$productName] = 0;
+    }
+    
+    $pivotData[$dseId][$productName] += $item->quantity;
+}
     }
 
     return view('cse.view_stok', compact('stokData', 'pivotData', 'productHeaders', 'dseList'));
@@ -143,10 +140,7 @@ public function viewRetur(Request $request)
      */
     public function viewOutlet()
     {
-        $userRegion = Auth::guard('shared')->user()->region;
-        
-        $outlets = Outlet::where('region', $userRegion)
-                        ->with(['stockLogs', 'salesLogs'])
+        $outlets = Outlet::with(['stockLogs', 'salesLogs'])
                         ->orderBy('name')
                         ->get();
         
@@ -158,44 +152,58 @@ public function viewRetur(Request $request)
      */
     public function viewPerforma(Request $request)
     {
-        $userRegion = Auth::guard('shared')->user()->region; // ✅ PERBAIKI: Auth::guard('shared')
+        $userRegion = Auth::guard('shared')->user()->region;
         
-        // 1. Ambil Filter
-        $startDate = $request->input('start_date', Carbon::today()->subDays(30)->toDateString());
-        $endDate = $request->input('end_date', Carbon::today()->toDateString());
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
         
-        // 2. Query Data Agregat (Total Stok Masuk vs. Total Retur)
-        $performanceData = DB::table('stock_logs')
-            ->select(
-                'stock_logs.username_id as dse_id',
-                DB::raw('SUM(stock_log_items.quantity) as total_stok_masuk'),
-                DB::raw('COALESCE(SUM(return_log_items.quantity), 0) as total_retur')
-            )
-            ->join('stock_log_items', 'stock_logs.id', '=', 'stock_log_items.stock_log_id')
-            
-            // LEFT JOIN dengan Retur untuk mendapatkan 0 jika tidak ada retur
-            ->leftJoin('return_logs', function ($join) use ($startDate, $endDate) {
-                $join->on('stock_logs.username_id', '=', 'return_logs.username_id')
-                     ->whereDate('return_logs.date', '>=', $startDate)
-                     ->whereDate('return_logs.date', '<=', $endDate);
-            })
-            ->leftJoin('return_log_items', 'return_logs.id', '=', 'return_log_items.return_log_id')
-            
-            // Filter Regional dan Periode
-            ->join('users', 'stock_logs.username_id', '=', 'users.id_dse')
-            ->where('users.region', $userRegion)
-            ->whereDate('stock_logs.date', '>=', $startDate)
-            ->whereDate('stock_logs.date', '<=', $endDate)
-            
-            ->groupBy('stock_logs.username_id')
-            ->orderBy('total_retur', 'asc') // Urutkan DSE dengan retur terendah di atas
-            ->get();
+        // Cek apakah filter tanggal sudah lengkap
+        $isFiltered = $startDate && $endDate;
+
+        // Tentukan nilai query date, default 30 hari terakhir jika filter belum lengkap
+        $queryStartDate = $startDate ? $startDate : Carbon::today()->subDays(30)->toDateString();
+        $queryEndDate = $endDate ? $endDate : Carbon::today()->toDateString();
+        
+        $performanceData = collect(); // Default data kosong
+
+        if ($isFiltered) {
+            // Lakukan query database hanya jika filter tanggal sudah lengkap
+            $performanceData = DB::table('stock_logs as sl')
+                ->select(
+                    'sl.username_id as dse_id',
+                    DB::raw('SUM(sli.quantity) as total_stok_masuk'),
+                    DB::raw('COALESCE(SUM(rli.quantity), 0) as total_retur')
+                )
+                // Join Stock Log Items
+                ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
+                
+                // LEFT JOIN Retur Log untuk mendapatkan 0 jika tidak ada retur
+                ->leftJoin('return_logs as rl', function ($join) use ($queryStartDate, $queryEndDate) {
+                    $join->on('sl.username_id', '=', 'rl.username_id')
+                         // PERBAIKAN: Gunakan alias rl.date
+                         ->whereDate('rl.date', '>=', $queryStartDate) 
+                         ->whereDate('rl.date', '<=', $queryEndDate); 
+                })
+                // Join Retur Log Items
+                ->leftJoin('return_log_items as rli', 'rl.id', '=', 'rli.return_log_id')
+                
+                // Join Users untuk Filter Regional
+                ->join('users', 'sl.username_id', '=', 'users.id_dse')
+                ->where('users.region', $userRegion)
+                
+                // Filter Periode STOK
+                ->whereDate('sl.date', '>=', $queryStartDate)
+                ->whereDate('sl.date', '<=', $queryEndDate)
+                
+                ->groupBy('sl.username_id')
+                ->orderBy('total_retur', 'asc')
+                ->get();
+        }
 
         // 3. Hitung Rasio Retur dan Finalisasi Data
         $finalData = $performanceData->map(function ($item) {
-            $stokKeluar = $item->total_stok_masuk - $item->total_retur; // Total produk yang berhasil didistribusikan (dijual/diberikan)
+            $stokKeluar = $item->total_stok_masuk - $item->total_retur; 
             
-            // Rasio Retur = (Total Retur / Total Stok Masuk) * 100
             $returnRate = $item->total_stok_masuk > 0 
                           ? ($item->total_retur / $item->total_stok_masuk) * 100
                           : 0;
@@ -205,16 +213,77 @@ public function viewRetur(Request $request)
                 'total_stok_masuk' => (int) $item->total_stok_masuk,
                 'total_retur' => (int) $item->total_retur,
                 'stok_keluar_netto' => $stokKeluar,
-                'return_rate' => round($returnRate, 2) // Persentase Retur
+                'return_rate' => round($returnRate, 2)
             ];
-        })->sortBy('return_rate')->values()->all(); // Urutkan lagi by rate
+        })->sortBy('return_rate')->values()->all();
 
         return view('cse.view_performa', [
             'performaData' => $finalData,
-            'startDate' => $startDate,
-            'endDate' => $endDate,
+            'startDate' => $queryStartDate, 
+            'endDate' => $queryEndDate, 
             'userRegion' => $userRegion,
+            'isFiltered' => $isFiltered, // Mengontrol visibility konten
         ]);
+    }
+
+    public function editOutlet($id)
+    {
+        $outlet = Outlet::findOrFail($id);
+        $regions = [
+            'Banjarmasin Utara',
+            'Banjarmasin Selatan',
+            'Banjarmasin Barat',
+            'Banjarmasin Tengah',
+            'Banjarmasin Timur'
+        ];
+        
+        return view('cse.edit_outlet', compact('outlet', 'regions'));
+    }
+
+    public function updateOutlet(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:outlets,name,' . $id,
+            'address' => 'required|string',
+            'owner_name' => 'required|string|max:255',
+            'phone' => 'required|string',
+            'status' => 'required|in:Aktif,Non-Aktif',
+            'region' => 'required|string',
+        ]);
+
+        try {
+            $outlet = Outlet::findOrFail($id);
+            $outlet->update($request->all());
+
+            return redirect()->route('cse.view_outlet')->with('success', 'Data outlet berhasil diupdate!');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal mengupdate outlet: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    public function deleteOutlet($id)
+    {
+        DB::beginTransaction();
+        try {
+            $outlet = Outlet::findOrFail($id);
+            
+            $hasStockLogs = $outlet->stockLogs()->exists();
+            $hasReturnLogs = $outlet->returnLogs()->exists();
+            
+            if ($hasStockLogs || $hasReturnLogs) {
+                return back()->with('error', 'Tidak dapat menghapus outlet karena memiliki data stok atau retur terkait.');
+            }
+            
+            $outlet->delete();
+            DB::commit();
+
+            return redirect()->route('cse.view_outlet')->with('success', 'Outlet berhasil dihapus!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menghapus outlet: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -264,16 +333,14 @@ public function viewRetur(Request $request)
     }
 
     // Di CSEController
-public function exportOutlet()
-{
-    $userRegion = Auth::guard('shared')->user()->region;
-    
-    $outlets = Outlet::where('region', $userRegion)
-                    ->orderBy('name')
-                    ->get();
+public function exportOutletPdf(Request $request)
+    {
+        $outlets = Outlet::orderBy('name')->get(); 
+        $region = Auth::guard('shared')->user()->region ?? 'Global';
+        $title = "Daftar Outlet Aktif Regional {$region}";
 
-    // Untuk sementara, kita redirect ke view biasa
-    // Nanti bisa diimplementasi dengan library PDF seperti Dompdf
-    return view('cse.export.outlet_pdf', compact('outlets'));
-}
+        $pdf = Pdf::loadView('admin.export.outlet_pdf', compact('outlets', 'title')); 
+
+        return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
+    }
 }

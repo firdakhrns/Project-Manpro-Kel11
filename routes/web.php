@@ -89,6 +89,12 @@ Route::middleware(['auth:shared'])->group(function () {
         Route::get('/kritik-saran', [CSEController::class, 'kritikSaran'])->name('cse.kritik_saran');
         Route::post('/kritik-saran', [CSEController::class, 'storeKritikSaran'])->name('cse.kritik_saran.store');
         Route::get('/export-outlet', [CSEController::class, 'exportOutlet'])->name('cse.export.outlet');
+        Route::get('/outlet-pdf', [CSEController::class, 'exportOutletPdf'])->name('cse.export.outlet_pdf');
+        Route::get('/outlet/create', [AdminController::class, 'createOutlet'])->name('cse.outlet.create');
+    Route::post('/outlet/store', [CSEController::class, 'storeOutlet'])->name('cse.outlet.store');
+    Route::get('/outlet/{id}/edit', [CSEController::class, 'editOutlet'])->name('cse.outlet.edit');
+    Route::put('/outlet/{id}/update', [CSEController::class, 'updateOutlet'])->name('cse.outlet.update');
+    Route::delete('/outlet/{id}/delete', [CSEController::class, 'deleteOutlet'])->name('cse.outlet.delete');
     });
 });
 
