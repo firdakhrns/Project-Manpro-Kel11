@@ -79,9 +79,11 @@
             </svg>
         </a>
 
-        {{-- Menggunakan $judulRiwayat dari controller jika tersedia, jika tidak default ke "Riwayat" --}}
-        <h1 class="mb-8">{{ $judulRiwayat ?? 'Riwayat Pencatatan' }}</h1> 
-        <p class="text-gray-500 text-center -mt-6 mb-8">Pencarian Riwayat Pencatatan Inventaris DSE</p>
+        <div class="header-content">
+            <h1 class="text-4xl font-extrabold text-center mb-2">{{ $judulRiwayat ?? 'Riwayat Pencatatan' }}</h1> 
+        <p class="text-gray-700 text-center mb-8">Pencarian Riwayat Pencatatan Inventaris DSE</p>
+    </div>
+
 
         {{-- FORM FILTER UTAMA (Mengandung Tanggal dan Tipe Log) --}}
         <form method="GET" action="{{ route('dse.riwayat_pencatatan') }}" class="flex flex-col sm:flex-row justify-center items-center mb-8 gap-3">
