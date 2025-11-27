@@ -12,12 +12,11 @@ use App\Models\StockLogItem;
 use App\Models\ReturnLogItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
-    /**
-     * Pencatatan Stok Harian - Semua DSE (READ)
-     */
     public function viewStok()
     {
         $stokData = StockLog::with(['user', 'outlet', 'items.product'])
@@ -28,9 +27,6 @@ class AdminController extends Controller
         return view('admin.view_stok', compact('stokData'));
     }
 
-    /**
-     * Pencatatan Retur Harian - Semua DSE (READ) 
-     */
     public function viewRetur()
     {
         $returData = ReturnLog::with(['user', 'outlet', 'items.product'])
@@ -41,9 +37,6 @@ class AdminController extends Controller
         return view('admin.view_retur', compact('returData'));
     }
 
-    /**
-     * Data Validasi Outlet - Semua DSE (READ)
-     */
     public function viewOutlet()
     {
         $outlets = Outlet::with(['stockLogs', 'salesLogs'])
@@ -53,129 +46,120 @@ class AdminController extends Controller
         return view('admin.view_outlet', compact('outlets'));
     }
 
-    /**
-     * Riwayat Pencatatan - Semua DSE (READ) dengan Filter
-     */
     public function riwayatPencatatan(Request $request)
     {
-        // Validasi input
-        $request->validate([
-            'tanggal' => 'nullable|date',
-            'dse_id' => 'nullable|string',
-            'region' => 'nullable|string',
-            'tipe' => 'nullable|in:stok,retur,all'
-        ]);
-
+        // 1. Ambil Filter dan Tetapkan Default
         $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
-        $dseId = $request->input('dse_id');
-        $region = $request->input('region');
-        $tipe = $request->input('tipe', 'stok');
+        $dseIdFilter = $request->input('dse_id'); // Mengambil DSE ID dari dropdown
+        $tipe = $request->input('tipe', 'stok'); // stok, retur, all
 
-        // Query untuk data stok
-        $stockQuery = StockLog::with(['user', 'outlet', 'items.product'])
-            ->when($tanggal, function($query) use ($tanggal) {
-                return $query->whereDate('date', $tanggal);
-            })
-            ->when($dseId, function($query) use ($dseId) {
-                return $query->where('username_id', $dseId);
-            })
-            ->when($region, function($query) use ($region) {
-                return $query->whereHas('user', function($q) use ($region) {
-                    $q->where('region', $region);
-                });
-            });
-
-        // Query untuk data retur
-        $returnQuery = ReturnLog::with(['user', 'outlet', 'items.product'])
-            ->when($tanggal, function($query) use ($tanggal) {
-                return $query->whereDate('date', $tanggal);
-            })
-            ->when($dseId, function($query) use ($dseId) {
-                return $query->where('username_id', $dseId);
-            })
-            ->when($region, function($query) use ($region) {
-                return $query->whereHas('user', function($q) use ($region) {
-                    $q->where('region', $region);
-                });
-            });
-
-        // Gabungkan data berdasarkan tipe
-        $riwayatData = collect();
-        
-        if ($tipe === 'stok' || $tipe === 'all') {
-            $stocks = $stockQuery->get()->map(function($stock) {
-                return [
-                    'id' => 'S-' . $stock->id,
-                    'jenis' => 'stok',
-                    'username_id' => $stock->username_id,
-                    'dse_name' => $stock->user->name ?? 'Unknown',
-                    'region' => $stock->user->region ?? 'Unknown',
-                    'outlet_name' => $stock->outlet->name ?? 'Unknown',
-                    'date' => $stock->date,
-                    'created_at' => $stock->created_at,
-                    'notes' => $stock->notes ?? 'Stok harian',
-                    'total_items' => $stock->items->count(),
-                    'total_quantity' => $stock->items->sum('quantity')
-                ];
-            });
-            $riwayatData = $riwayatData->merge($stocks);
+        try {
+            $tanggalCari = Carbon::parse($tanggal);
+        } catch (\Exception $e) {
+            $tanggalCari = Carbon::today();
         }
 
-        if ($tipe === 'retur' || $tipe === 'all') {
-            $returns = $returnQuery->get()->map(function($return) {
-                return [
-                    'id' => 'R-' . $return->id,
-                    'jenis' => 'retur',
-                    'username_id' => $return->username_id,
-                    'dse_name' => $return->user->name ?? 'Unknown',
-                    'region' => $return->user->region ?? 'Unknown',
-                    'outlet_name' => $return->outlet->name ?? 'Unknown',
-                    'date' => $return->date,
-                    'created_at' => $return->created_at,
-                    'notes' => $return->notes ?? 'Retur harian',
-                    'status' => $return->status ?? 'pending',
-                    'total_items' => $return->items->count(),
-                    'total_quantity' => $return->items->sum('quantity')
-                ];
-            });
-            $riwayatData = $riwayatData->merge($returns);
-        }
-
-        // Urutkan berdasarkan created_at
-        $riwayatData = $riwayatData->sortByDesc('created_at')->values();
-
-        // Data untuk dropdown filter
-        $dseList = User::where('role', 'DSE')->get(['id_dse', 'name']);
+        // 2. Ambil List Master Data untuk Filter Dropdown
+        $dseList = User::where('role', 'DSE')->orderBy('id_dse')->get(['id_dse', 'name', 'region']);
         $regions = User::where('role', 'DSE')->distinct()->pluck('region');
+        
+        // 3. Ambil semua produk unik sebagai Header Kolom (Product Codes)
+        $productHeaders = Product::pluck('product_code')->toArray();
+        $allDseKeys = User::where('role', 'DSE')->pluck('id_dse'); 
+        
+        // 4. Struktur Data Agregat Global (Pivot Matrix)
+        $pivotData = [];
+        
+        foreach ($allDseKeys as $id) {
+            if ($dseIdFilter && $dseIdFilter != $id) continue;
+            
+            $pivotData[$id] = [
+                'stok' => array_fill_keys($productHeaders, 0),
+                'retur' => array_fill_keys($productHeaders, 0),
+            ];
+        }
 
-        // Stats untuk info header
-        $totalDSE = User::where('role', 'DSE')->count();
-        $totalStokEntries = $stockQuery->count();
-        $totalReturEntries = $returnQuery->count();
-        $totalOutlets = Outlet::count();
+        // --- 5. Logika Query dan Agregasi ---
 
-        return view('admin.riwayat_pencatatan', compact(
-            'riwayatData',
-            'dseList',
-            'regions',
-            'totalDSE',
-            'totalStokEntries',
-            'totalReturEntries',
-            'totalOutlets'
-        ));
+        // A. Query Stok (stok & all)
+        if ($tipe == 'stok' || $tipe == 'all') {
+            $stokQuery = $this->buildPivotQuery('stock_log_items', 'stock_logs', $tanggalCari, $dseIdFilter);
+            $this->aggregatePivotData($stokQuery->get(), $pivotData, 'stok');
+        }
+
+        // B. Query Retur (retur & all)
+        if ($tipe == 'retur' || $tipe == 'all') {
+            $returQuery = $this->buildPivotQuery('return_log_items', 'return_logs', $tanggalCari, $dseIdFilter);
+            $this->aggregatePivotData($returQuery->get(), $pivotData, 'retur');
+        }
+        
+        // 6. Kirim data ke View
+        return view('admin.riwayat_pencatatan', [
+            'pivotData' => $pivotData,
+            'productHeaders' => $productHeaders,
+            'tanggalFilter' => $tanggal,
+            'tipe' => $tipe,
+            'dseList' => $dseList,
+            'regions' => $regions,
+            'totalDSE' => User::where('role', 'DSE')->count(), 
+            'totalOutlets' => Outlet::count(),
+        ]);
+    }
+    
+    /**
+     * Helper: Membuat query pivot yang efisien untuk Stok/Retur
+     */
+    private function buildPivotQuery(string $itemTable, string $logTable, Carbon $date, ?string $dseId)
+    {
+        $logIdColumn = $logTable == 'stock_logs' ? 'stock_log_id' : 'return_log_id';
+
+        $query = DB::table($itemTable)
+            ->join($logTable, "{$itemTable}.{$logIdColumn}", '=', "{$logTable}.id")
+            ->join('products', "{$itemTable}.product_id", '=', 'products.id')
+            ->select(
+                "{$logTable}.username_id",
+                'products.product_code',
+                DB::raw('SUM('.$itemTable.'.quantity) as total_qty')
+            )
+            ->whereDate("{$logTable}.date", $date->toDateString());
+
+        if ($dseId) {
+            $query->where("{$logTable}.username_id", $dseId);
+        }
+        
+        $query->groupBy("{$logTable}.username_id", 'products.product_code');
+        
+        return $query;
     }
 
-    // ==================== CRUD OPERATIONS ====================
-
     /**
-     * CREATE - Tambah Stok Manual (Admin)
+     * Helper: Mengisi data ke struktur pivot.
      */
+    private function aggregatePivotData($logData, &$pivotData, string $logType) 
+    {
+        foreach ($logData as $log) {
+            // Gunakan dse_id dari log (yang dikembalikan oleh SELECT)
+            $dseId = $log->username_id; 
+            $productCode = $log->product_code;
+
+            if (isset($pivotData[$dseId])) {
+                $pivotData[$dseId][$logType][$productCode] = $log->total_qty;
+            }
+        }
+    }
+
     public function createStok()
 {
-    $dseUsers = User::where('role', 'DSE')->get(['id_dse', 'name']);
+    $dseUsers = User::where('role', 'DSE')->get();  // Huruf besar 'DSE'
     $outlets = Outlet::all();
-    
-    return view('admin.create_stok', compact('dseUsers', 'outlets'));
+    return view('admin.view_stok', compact('dseUsers', 'outlets')); // Langsung ke view_stok.blade.php
+}
+
+public function createRetur()
+{
+    $dseUsers = User::where('role', 'DSE')->get();  // Huruf besar 'DSE'
+    $outlets = Outlet::all();
+    return view('admin.view_retur', compact('dseUsers', 'outlets')); // Langsung ke view_retur.blade.php
 }
 
     public function storeStok(Request $request)
@@ -195,15 +179,11 @@ class AdminController extends Controller
                 'notes' => $request->notes ?? 'Stok oleh Admin',
             ]);
 
-            // Mapping untuk product codes
             $productMapping = [
-                // Kartu Perdana
                 '3gb' => 'KP_3GB',
-                '6gb' => 'KP_6GB',
+                '6gb' => 'KP_6GB', 
                 '9gb' => 'KP_9GB',
                 '20gb' => 'KP_20GB',
-                
-                // Voucher
                 '1gb_2h' => 'FI15_1D',
                 '15gb_7h' => 'FI15_7D',
                 '3gb_3h' => 'FI3_3D',
@@ -217,7 +197,6 @@ class AdminController extends Controller
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
                                 ->pluck('id', 'product_code');
 
-            // Simpan items stok
             $allStokInputs = array_merge($request->input('stok.kp', []), $request->input('stok.v', []));
             $savedItems = 0;
 
@@ -244,21 +223,11 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * CREATE - Tambah Retur Manual (Admin)
-     */
-    public function createRetur()
-    {
-        $dseUsers = User::where('role', 'DSE')->get(['id_dse', 'name']);
-        $outlets = Outlet::all();
-        
-        return view('admin.create_retur', compact('dseUsers', 'outlets'));
-    }
-
     public function storeRetur(Request $request)
     {
+        // PERBAIKAN: Field name harus 'username_id' bukan 'dse_id'
         $request->validate([
-            'username_id' => 'required|exists:users,id_dse',
+            'username_id' => 'required|exists:users,id_dse', // PERBAIKAN: username_id
             'outlet_id' => 'required|exists:outlets,id',
             'date' => 'required|date',
         ]);
@@ -266,22 +235,18 @@ class AdminController extends Controller
         DB::beginTransaction();
         try {
             $returnLog = ReturnLog::create([
-                'username_id' => $request->username_id,
+                'username_id' => $request->username_id, // PERBAIKAN: username_id
                 'outlet_id' => $request->outlet_id,
                 'date' => $request->date,
                 'notes' => $request->notes ?? 'Retur oleh Admin',
                 'status' => 'pending',
             ]);
 
-            // Mapping untuk product codes (sama dengan stok)
             $productMapping = [
-                // Kartu Perdana
                 '3gb' => 'KP_3GB',
                 '6gb' => 'KP_6GB',
-                '9gb' => 'KP_9GB',
+                '9gb' => 'KP_9GB', 
                 '20gb' => 'KP_20GB',
-                
-                // Voucher
                 '1gb_2h' => 'FI15_1D',
                 '15gb_7h' => 'FI15_7D',
                 '3gb_3h' => 'FI3_3D',
@@ -295,7 +260,6 @@ class AdminController extends Controller
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
                                 ->pluck('id', 'product_code');
 
-            // Simpan items retur
             $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
             $savedItems = 0;
 
@@ -322,9 +286,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * UPDATE - Edit Data Stok
-     */
     public function editStok($id)
     {
         $stok = StockLog::with('items.product')->findOrFail($id);
@@ -354,7 +315,6 @@ class AdminController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Update items
             if ($request->has('items')) {
                 foreach ($request->items as $itemId => $quantity) {
                     $stokItem = StockLogItem::where('stock_log_id', $stok->id)
@@ -377,9 +337,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * DELETE - Hapus Data Stok
-     */
     public function deleteStok($id)
     {
         DB::beginTransaction();
@@ -397,9 +354,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * UPDATE - Approve/Reject Retur
-     */
     public function updateReturStatus(Request $request, $id)
     {
         $request->validate([
@@ -421,9 +375,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * CREATE - Tambah Outlet Baru (Admin)
-     */
     public function createOutlet()
     {
         $regions = [
@@ -465,9 +416,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * UPDATE - Edit Outlet
-     */
     public function editOutlet($id)
     {
         $outlet = Outlet::findOrFail($id);
@@ -504,16 +452,12 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * DELETE - Hapus Outlet
-     */
     public function deleteOutlet($id)
     {
         DB::beginTransaction();
         try {
             $outlet = Outlet::findOrFail($id);
             
-            // Cek apakah outlet memiliki data terkait
             $hasStockLogs = $outlet->stockLogs()->exists();
             $hasReturnLogs = $outlet->returnLogs()->exists();
             
@@ -532,9 +476,6 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * REPORT - Export Data
-     */
     public function exportStok(Request $request)
     {
         $request->validate([
@@ -569,9 +510,17 @@ class AdminController extends Controller
         return view('admin.export.retur_excel', compact('returData', 'startDate', 'endDate'));
     }
 
-    /**
-     * DASHBOARD STATS
-     */
+    public function exportOutletPdf(Request $request)
+    {
+        $outlets = Outlet::orderBy('name')->get(); 
+        $region = Auth::guard('shared')->user()->region ?? 'Global';
+        $title = "Daftar Outlet Aktif Regional {$region}";
+
+        $pdf = Pdf::loadView('admin.export.outlet_pdf', compact('outlets', 'title')); 
+
+        return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
+    }
+
     public function dashboardStats()
     {
         $totalDSE = User::where('role', 'DSE')->count();

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Stok Global Admin</title>
+    <title>Detail Stok Global Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; --gray-light: #f8f8f8; }
@@ -18,47 +18,20 @@
         /* Tombol Kembali Merah Bulat */
         .back-button-circle { background-color: var(--im3-red); color: white; padding: 8px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); position: absolute; top: 20px; left: 20px; z-index: 11; }
         
-        /* JUDUL DIPERBESAR (FIX) */
-        h1 { font-size: 3rem; font-weight: 800; color: #333; text-align: center; margin-bottom: 5px; }
+        /* JUDUL BESAR & BOLD (FIX) */
+        .main-title { font-size: 3.5rem; font-weight: 800; color: #333; text-align: center; margin-bottom: 5px; line-height: 1.1; }
 
         /* Filter & Info Header Styling */
-        .filter-header-group { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 30px; }
+        .filter-header-group { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; }
         .info-toggle-item { display: inline-flex; align-items: center; border-radius: 20px; overflow: hidden; border: 1px solid var(--im3-red); height: 38px; }
         
-        /* Style untuk teks Tanggal dan Waktu (bagian statis) */
-        .header-badge-text { 
-            padding: 0 12px; 
-            font-size: 0.9rem; 
-            font-weight: 600; 
-            color: white; 
-            background-color: var(--im3-red); /* Latar Belakang Merah */
-            height: 100%;
-            display: flex;
-            align-items: center;
-        }
+        /* Style untuk badge label (Tanggal/Waktu Label) */
+        .header-badge-label { padding: 0 12px; font-size: 0.9rem; font-weight: 600; color: white; background-color: var(--im3-red); height: 100%; display: flex; align-items: center; }
         
-        /* Perbaikan Style Input Tanggal di Header (FIX) */
-        .header-date-input {
-            padding: 0 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #333;
-            height: 100%;
-            border: none;
-            outline: none;
-            background-color: white; /* Background putih */
-        }
-        
-        /* Waktu Statis (FIX - Merah total) */
-        .time-badge-red {
-            padding: 0 12px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: white;
-            background-color: var(--im3-red);
-            height: 100%;
-            display: flex;
-            align-items: center;
+        /* Input Tanggal/Dropdown di Header */
+        .header-date-input, .header-dropdown { 
+            padding: 0 10px; font-size: 0.9rem; font-weight: 600; color: #333; height: 100%; border: none; outline: none; background-color: white; 
+            appearance: none; /* Hilangkan default arrow */
         }
         
         /* Tabel Pivot Styling */
@@ -70,24 +43,10 @@
         .dse-id-col { text-align: left; font-weight: 600; }
         .bg-red-header { background-color: var(--im3-red); color: white; border-color: var(--im3-red); }
         
-        /* Toggle Button (Stok/Retur/Gabungan) */
+        /* Toggle Button */
         .category-buttons-wrapper { background-color: #e5e7eb; border-radius: 25px; display: inline-flex; padding: 4px; }
-        .category-button-toggle { 
-            padding: 6px 15px; 
-            border-radius: 20px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            background-color: transparent; 
-            color: #4b5563; 
-            border: none; 
-            font-size: 0.9rem; 
-            transition: background-color 0.2s, color 0.2s;
-        }
-        .category-button-toggle.active { 
-            background-color: var(--im3-red); 
-            color: white; 
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); 
-        }
+        .category-button-toggle { padding: 6px 15px; border-radius: 20px; font-weight: 600; cursor: pointer; background-color: transparent; color: #4b5563; border: none; font-size: 0.9rem; transition: background-color 0.2s, color 0.2s; }
+        .category-button-toggle.active { background-color: var(--im3-red); color: white; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="flex items-start justify-center min-h-screen pt-10 pb-10">
@@ -100,16 +59,15 @@
             </svg>
         </a>
 
-        <div class="header-content pt-10">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-2">Detail Stok</h1>
-        </div>
+        <h1 class="main-title mb-2">Detail Stok</h1>
+        <p class="text-gray-500 text-center -mt-2 mb-6">Laporan Stok Global Harian</p>
         
-        {{-- FORM FILTER & INFO HEADER --}}
+        {{-- FORM FILTER UTAMA DAN INFO HEADER (SEMUA SEJAJAR) --}}
         <form method="GET" action="{{ route('admin.riwayat_pencatatan') }}" id="filterFormAdmin" class="filter-header-group">
             
             {{-- 1. Tanggal (Input - FIX) --}}
             <div class="info-toggle-item">
-                <span class="header-badge-text">Tanggal</span>
+                <span class="header-badge-label">Tanggal</span>
                 <input 
                     type="date" 
                     name="tanggal" 
@@ -120,20 +78,32 @@
             </div>
             
             {{-- 2. Waktu (Badge Merah Statis - FIX) --}}
-            <div class="info-toggle-item" style="border: 1px solid var(--im3-red);">
-                <span class="header-badge-text" style="background-color: var(--im3-red); color: white;">Waktu</span>
-                {{-- Waktu Statis --}}
-                <span id="time-display" class="header-badge-text" style="background-color: white; color: #333;">{{ Carbon\Carbon::now()->format('H:i') }} WITA</span>
+            <div class="info-toggle-item">
+                <span class="header-badge-label">Waktu</span>
+                <span id="time-display" class="header-date-input" style="background-color: white; color: #333;">{{ Carbon\Carbon::now()->format('H:i') }} WITA</span>
             </div>
-
             
-            {{-- 3. TOGGLE TIPE LOG (STOK / RETUR / GABUNGAN) --}}
+            {{-- 3. Filter DSE (DROPDOWN) --}}
+            <div class="info-toggle-item" style="border: 1px solid var(--im3-red);">
+                <span class="header-badge-label bg-gray-600" style="background-color: var(--im3-red);">DSE</span>
+                 <select name="dse_id" id="dse_id_filter" class="header-dropdown" onchange="this.form.submit()">
+                    <option value="">Semua DSE</option>
+                    {{-- $dseList harus dikirim dari AdminController --}}
+                    @foreach($dseList ?? [] as $dse)
+                        <option value="{{ $dse->id_dse }}" @if(request('dse_id') == $dse->id_dse) selected @endif>
+                            {{ $dse->id_dse }} ({{ $dse->name }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            
+            {{-- 4. TOGGLE TIPE LOG (STOK / RETUR / GABUNGAN) --}}
             <input type="hidden" name="tipe" id="tipe_hidden" value="{{ $tipe ?? 'stok' }}">
 
             <div class="category-buttons-wrapper">
-                <button type="button" onclick="document.getElementById('tipe_hidden').value='stok'; this.form.submit();" class="category-button-toggle @if(($tipe ?? 'stok') == 'stok') active @endif">Stok</button>
-                <button type="button" onclick="document.getElementById('tipe_hidden').value='retur'; this.form.submit();" class="category-button-toggle @if(($tipe ?? 'stok') == 'retur') active @endif">Retur</button>
-                <button type="button" onclick="document.getElementById('tipe_hidden').value='all'; this.form.submit();" class="category-button-toggle @if(($tipe ?? 'stok') == 'all') active @endif">Gabungan</button>
+                <button type="button" data-tipe="stok" class="category-button-toggle @if(($tipe ?? 'stok') == 'stok') active @endif">Stok</button>
+                <button type="button" data-tipe="retur" class="category-button-toggle @if(($tipe ?? 'stok') == 'retur') active @endif">Retur</button>
+                <button type="button" data-tipe="all" class="category-button-toggle @if(($tipe ?? 'stok') == 'all') active @endif">Semua</button>
             </div>
             
         </form>
@@ -153,13 +123,11 @@
                     
                     {{-- Header Row 2: Nama Produk Individual --}}
                     <tr>
-                        {{-- Kartu Perdana 4 Produk --}}
                         <th class="text-xs">SP 3 GB</th>
                         <th class="text-xs">SP 6 GB</th>
                         <th class="text-xs">SP 9 GB</th>
                         <th class="text-xs">SP 20 GB</th>
                         
-                        {{-- Voucher 8 Produk --}}
                         <th class="text-xs">1 GB/2hr</th>
                         <th class="text-xs">3 GB/3hr</th>
                         <th class="text-xs">5 GB/5hr</th>
@@ -172,12 +140,11 @@
                 </thead>
                 <tbody>
                     @php
-                        // List Product Codes yang harus dicari (sesuai urutan header)
                         $productCodes = [
-                            'FI3_1D', 'FI7_7D', 'FI15_7D', 'FI15_7D', 
-                            'FI15_1D', 'FI3_3D', 'FI5_5D', 'FI7_7D', 'FI15_7D', 'FI3_3D', 'FI5_2D', 'FI5_3D'
+                            'KP_3GB', 'KP_6GB', 'KP_9GB', 'KP_20GB',
+                            'FI15_1D', 'FI15_7D', 'FI3_3D', 'FI3_28D', 'FI5_5D', 'FI5_2D', 'FI7_7D', 'FI5_3D',
                         ];
-                        $tipe = $tipe ?? 'stok'; // Pastikan tipe default
+                        $tipe = $tipe ?? 'stok';
                     @endphp
 
                     @forelse($pivotData ?? [] as $dseId => $row)
@@ -223,9 +190,35 @@
                 timeElement.textContent = formattedTime;
             }
         }
+        
+        // JS untuk menangani submit filter saat tombol Stok/Retur ditekan (FIXED LOGIC)
         document.addEventListener('DOMContentLoaded', () => {
             updateTimeDisplay();
             setInterval(updateTimeDisplay, 1000); 
+
+            const form = document.getElementById('filterFormAdmin');
+            const hiddenTipe = document.getElementById('tipe_hidden');
+            const toggleButtons = document.querySelectorAll('.category-button-toggle');
+
+            // 1. Tambahkan event listener ke semua tombol toggle
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const newTipe = this.getAttribute('data-tipe');
+                    
+                    // Set nilai hidden field
+                    hiddenTipe.value = newTipe;
+                    
+                    // Submit form utama
+                    form.submit();
+                });
+            });
+            
+            // 2. Tambahkan event listener ke dropdown DSE (submit otomatis)
+            document.getElementById('dse_id_filter').addEventListener('change', function() {
+                form.submit();
+            });
+            
+            // Catatan: Input Tanggal sudah submit otomatis via onchange di HTML.
         });
     </script>
 </body>

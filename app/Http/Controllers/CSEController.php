@@ -262,4 +262,18 @@ public function viewRetur(Request $request)
         return redirect()->route('cse.kritik_saran')
                          ->with('success', 'Kritik dan saran berhasil dikirim!');
     }
+
+    // Di CSEController
+public function exportOutlet()
+{
+    $userRegion = Auth::guard('shared')->user()->region;
+    
+    $outlets = Outlet::where('region', $userRegion)
+                    ->orderBy('name')
+                    ->get();
+
+    // Untuk sementara, kita redirect ke view biasa
+    // Nanti bisa diimplementasi dengan library PDF seperti Dompdf
+    return view('cse.export.outlet_pdf', compact('outlets'));
+}
 }

@@ -3,18 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Outlet Aktif Admin</title>
+    <title>Daftar Outlet Aktif CSE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; }
         
-        /* Latar Belakang Merah-Kuning (Sesuai Desain) */
         body { 
             background-color: var(--im3-yellow); 
             font-family: 'Inter', sans-serif; 
             position: relative;
         }
-        /* Pola Merah (Sesuai Desain) */
         body::before { content: ''; position: fixed; top: 0; right: 0; width: 300px; height: 300px; background-color: var(--im3-red); border-radius: 50%; transform: translate(50%, -50%); z-index: 0; }
         body::after { content: ''; position: fixed; bottom: 0; left: 0; width: 400px; height: 400px; background-color: var(--im3-red); border-radius: 50%; transform: translate(-50%, 50%); z-index: 0; }
 
@@ -29,7 +27,6 @@
             z-index: 10;
         }
         
-        /* Tombol Kembali Merah Bulat */
         .back-button-circle { 
             background-color: var(--im3-red); 
             color: white; padding: 8px; border-radius: 50%; display: inline-flex; 
@@ -40,7 +37,6 @@
 
         h1 { font-size: 2.5rem; font-weight: 800; color: #333; text-align: center; margin-bottom: 30px; }
         
-        /* Styling Tabel Sesuai Desain */
         .outlet-table { 
             width: 100%; 
             border-collapse: collapse; 
@@ -48,7 +44,7 @@
             overflow: hidden; 
         }
         .outlet-table th { 
-            background-color: #f7f7f7; /* Header Background Putih/Abu-abu */
+            background-color: #f7f7f7;
             font-weight: 600; 
             color: #4a5568; 
             padding: 15px 12px; 
@@ -63,33 +59,15 @@
         .outlet-table tbody tr:nth-child(even) { background-color: #fcfcfc; }
         .outlet-table tbody tr:hover { background-color: #f8f8f8; }
 
-        .edit-group {
-            display: flex;
-            align-items: center;
-            font-weight: 600; /* Nama outlet tebal */
-            color: #333;
-        }
-        .edit-icon-btn { 
-            color: #4a5568; 
-            margin-right: 8px; 
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        .edit-icon-btn:hover {
-            color: var(--im3-red);
-        }
-        
-        /* Status Badge Styling */
         .status-badge {
             padding: 4px 10px;
             border-radius: 9999px;
             font-size: 0.8rem;
             font-weight: 600;
         }
-        .status-Aktif { background-color: #d1fae5; color: #065f46; } /* Hijau Muda */
-        .status-Ditinjau { background-color: #ffedd5; color: #9a3412; } /* Jingga Muda */
+        .status-Aktif { background-color: #d1fae5; color: #065f46; }
+        .status-NonAktif { background-color: #fee2e2; color: #991b1b; }
 
-        /* Export Button */
         .export-btn {
             background-color: var(--im3-red);
             color: white;
@@ -112,7 +90,23 @@
             </svg>
         </a>
 
-        <h1>Daftar Outlet Aktif</h1>
+        <div class="header-content pt-10">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-2">Daftar Outlet Aktif</h1>
+        </div>
+
+        @if(session('success'))
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+        <strong class="font-bold">Sukses!</strong>
+        <span class="block sm:inline">{{ session('success') }}</span>
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+        <strong class="font-bold">Error!</strong>
+        <span class="block sm:inline">{{ session('error') }}</span>
+    </div>
+    @endif
 
         <div class="overflow-x-auto">
             <table class="outlet-table">
@@ -122,52 +116,43 @@
                         <th>Alamat Outlet</th>
                         <th>Nama Pemilik</th>
                         <th>No. HP Pemilik</th>
+                        <th>Tanggal Bergabung</th>
                         <th>Status Outlet</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{-- Data statis disimulasikan dari Controller --}}
-                    @php
-                        // Contoh data, ganti dengan @foreach($outlets as $outlet) dari Controller Anda
-                        $outletData = [
-                            ['id' => 1, 'Nama' => 'Ummi Cell', 'Alamat' => 'Jl. Sultan Adam', 'Pemilik' => 'Ummi Habibah', 'HP' => '08xxxxxxxxxx', 'Status' => 'Aktif'],
-                            ['id' => 2, 'Nama' => 'Zahra Cell', 'Alamat' => 'Jl. Sultan Adam', 'Pemilik' => 'Zahra', 'HP' => '08xxxxxxxxxx', 'Status' => 'Aktif'],
-                            ['id' => 3, 'Nama' => 'Detik Ponsel', 'Alamat' => 'Jl. Sultan Adam', 'Pemilik' => 'Ibrahim', 'HP' => '08xxxxxxxxxx', 'Status' => 'Aktif'],
-                            ['id' => 4, 'Nama' => 'Oscar Cell', 'Alamat' => 'Jl. Sultan Adam', 'Pemilik' => 'Oscar', 'HP' => '08xxxxxxxxxx', 'Status' => 'Aktif'],
-                            ['id' => 5, 'Nama' => 'AA Ponsel', 'Alamat' => 'Jl. Sultan Adam', 'Pemilik' => 'Sulaiman', 'HP' => '08xxxxxxxxxx', 'Status' => 'Ditinjau'],
-                        ];
-                    @endphp
-
-                    @foreach($outletData as $outlet)
+                    {{-- DATA DINAMIS DARI DATABASE --}}
+                    @forelse($outlets as $outlet)
                         <tr>
                             <td class="pl-4">
-                                {{-- Kolom Edit dan Nama Outlet digabung --}}
-                                <a href="{{ route('admin.outlet.edit', $outlet['id']) }}" class="edit-group">
-                                    <span class="edit-icon-btn">
-                                        {{-- Ikon Edit/Pensil --}}
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21H3v-3.5L14.732 3.732z" />
-                                        </svg>
-                                    </span>
-                                    <span>{{ $outlet['Nama'] }}</span>
-                                </a>
+                                <div class="font-semibold">{{ $outlet->name }}</div>
                             </td>
-                            <td>{{ $outlet['Alamat'] }}</td>
-                            <td>{{ $outlet['Pemilik'] }}</td>
-                            <td>{{ $outlet['HP'] }}</td>
+                            <td>{{ $outlet->address }}</td>
+                            <td>{{ $outlet->owner_name }}</td>
+                            <td>{{ $outlet->phone ?? '-' }}</td>
+                            <td>{{ \Carbon\Carbon::parse($outlet->join_date)->format('d/m/Y') }}</td>
                             <td>
-                                <span class="status-badge status-{{ str_replace('-', '', $outlet['Status']) }}">
-                                    {{ $outlet['Status'] }}
+                                <span class="status-badge status-{{ str_replace(' ', '', $outlet->status) }}">
+                                    {{ $outlet->status }}
                                 </span>
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center py-6 text-gray-500">
+                                Tidak ada outlet yang tercatat di region {{ Auth::guard('shared')->user()->region }}.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
         
         <div class="text-right mt-8">
-            <button class="export-btn">EKSPOR PDF</button>
+            {{-- TOMBOL EXPORT PDF YANG BERFUNGSI --}}
+            <a href="{{ route('cse.export.outlet') }}" class="export-btn inline-block">
+                EKSPOR PDF
+            </a>
         </div>
         
     </div>

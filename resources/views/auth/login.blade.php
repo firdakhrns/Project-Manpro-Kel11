@@ -83,11 +83,8 @@
                 <img 
     src="{{ asset('asset/img/Logo_IM3-removebg-preview.png') }}" 
     alt="Logo IM3 Ooredoo" 
-    class="im3-logo-img"
-/>
-                
-                <div class="im3-logo-dot"></div>
-                
+    class="im3-logo-img"/>
+                <div class="im3-logo-dot"></div> 
             </div>
         </div>
         

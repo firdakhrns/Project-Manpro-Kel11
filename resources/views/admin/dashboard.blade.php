@@ -13,6 +13,18 @@
         .header-box::before { content: ''; position: absolute; top: -50px; right: -50px; width: 120px; height: 120px; background-color: var(--im3-red); border-radius: 50%; opacity: 0.8; }
         .header-box::after { content: ''; position: absolute; top: 10px; right: 80px; width: 50px; height: 50px; background-color: var(--im3-red); border-radius: 50%; opacity: 0.8; }
         
+        /* TAMBAHKAN INI - Styling Kotak Tanggal & Jam */
+        .datetime-box {
+            display: inline-block;
+            background-color: white;
+            color: #333;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.875rem; 
+            font-weight: 600; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
         /* Grid 2x2 untuk 4 Menu (Sesuai Mockup) */
         .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 30px; } 
         
@@ -37,9 +49,14 @@
             <h2 class="text-2xl font-extrabold mb-1 relative z-10">Selamat Datang, {{ Auth::guard('shared')->user()->username ?? 'Admin' }}!</h2>
             <p class="text-sm relative z-10">Monitoring pencatatan stok hari ini.</p>
             
+            <!-- TAMBAHKAN CLASS datetime-box DI SINI -->
             <div class="flex space-x-4 mt-3 relative z-10 font-bold text-sm">
-                <span class="bg-white px-3 py-1 rounded-full shadow-md">{{ date('D, d F Y') }}</span>
-                <span class="bg-white px-3 py-1 rounded-full shadow-md">{{ date('H.i') }} WITA</span>
+                <span id="date-display" class="datetime-box">
+                    {{ \Carbon\Carbon::now('Asia/Makassar')->locale('id')->translatedFormat('l, d F Y') }}
+                </span>
+                <span id="time-display" class="datetime-box">
+                    {{ \Carbon\Carbon::now('Asia/Makassar')->format('H:i') }}
+                </span>
             </div>
         </div>
         
