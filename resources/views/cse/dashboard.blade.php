@@ -56,7 +56,7 @@
 
         .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 30px; }
         .menu-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #fff; border: 1px solid #e2e2e2; padding: 25px 15px; border-radius: 10px; text-align: center; text-decoration: none; color: #333; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .menu-item:hover { background-color: #f7f7f7; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .menu-item:hover { background-color: var(--im3-red); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .menu-item-icon { color: #5a5a5a; margin-bottom: 10px; }
         .logout-btn { background-color: #dc3545; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 20px; }
     </style>
@@ -64,9 +64,6 @@
 <body>
     <div class="dashboard-container">
         <div class="flex items-center mb-8">
-            <a href="{{ route('shared.dashboard') }}" class="text-2xl text-gray-500 mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            </a>
             <h1 class="text-3xl font-extrabold">Dashboard Manajer</h1>
         </div>
         
@@ -75,7 +72,7 @@
                 @php 
                     $sharedUser = Auth::guard('shared')->user();
                 @endphp
-                <h2 class="text-2xl font-extrabold mb-1">Selamat Datang, {{ $sharedUser->username ?? 'Manajer' }}!</h2>
+                <h2 class="text-2xl font-extrabold mb-1">Selamat Datang Manajer!</h2>
                 <p class="text-sm">Silakan akses laporan dan evaluasi DSE regional hari ini</p>
                 
                 <div class="flex space-x-2 mt-3 text-sm">

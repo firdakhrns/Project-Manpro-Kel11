@@ -78,24 +78,30 @@ Route::middleware(['auth:shared'])->group(function () {
     
     // Route khusus CSE
     Route::prefix('cse')->group(function () {
-        Route::get('/dashboard', function () {
-            return view('cse.dashboard');
-        })->name('cse.dashboard');
-        
-        Route::get('/view-stok', [CSEController::class, 'viewStok'])->name('cse.view_stok');
-        Route::get('/view-retur', [CSEController::class, 'viewRetur'])->name('cse.view_retur');
-        Route::get('/view-outlet', [CSEController::class, 'viewOutlet'])->name('cse.view_outlet');
-        Route::get('/view-performa', [CSEController::class, 'viewPerforma'])->name('cse.view_performa');
-        Route::get('/kritik-saran', [CSEController::class, 'kritikSaran'])->name('cse.kritik_saran');
-        Route::post('/kritik-saran', [CSEController::class, 'storeKritikSaran'])->name('cse.kritik_saran.store');
-        Route::get('/export-outlet', [CSEController::class, 'exportOutlet'])->name('cse.export.outlet');
-        Route::get('/outlet-pdf', [CSEController::class, 'exportOutletPdf'])->name('cse.export.outlet_pdf');
-        Route::get('/outlet/create', [AdminController::class, 'createOutlet'])->name('cse.outlet.create');
-    Route::post('/outlet/store', [CSEController::class, 'storeOutlet'])->name('cse.outlet.store');
+    Route::get('/dashboard', function () {
+        return view('cse.dashboard');
+    })->name('cse.dashboard');
+    
+    Route::get('/view-stok', [CSEController::class, 'viewStok'])->name('cse.view_stok');
+    Route::get('/view-retur', [CSEController::class, 'viewRetur'])->name('cse.view_retur');
+    Route::get('/view-outlet', [CSEController::class, 'viewOutlet'])->name('cse.view_outlet');
+    Route::get('/view-performa', [CSEController::class, 'viewPerforma'])->name('cse.view_performa');
+    
+    // === KRITIK SARAN ROUTES - HANYA INI YANG ADA ===
+    Route::get('/kritik-saran', [CSEController::class, 'kritikSaran'])->name('cse.kritik_saran');
+    Route::get('/kritik-saran/input', [CSEController::class, 'showInputKritikSaran'])->name('cse.kritik_saran.input');
+    Route::post('/kritik-saran', [CSEController::class, 'storeKritikSaran'])->name('cse.kritik_saran.store');
+    Route::get('/kritik-saran/hasil', [CSEController::class, 'showHasilKritikSaran'])->name('cse.kritik_saran.hasil');
+    Route::get('/kritik-saran/export-pdf', [CSEController::class, 'exportKritikSaranPDF'])->name('cse.kritik_saran.export.pdf');
+    
+    // EXPORT OUTLET
+    Route::get('/export-outlet', [CSEController::class, 'exportOutletPdf'])->name('cse.export.outlet_pdf');
+    
+    // OUTLET CRUD
     Route::get('/outlet/{id}/edit', [CSEController::class, 'editOutlet'])->name('cse.outlet.edit');
     Route::put('/outlet/{id}/update', [CSEController::class, 'updateOutlet'])->name('cse.outlet.update');
     Route::delete('/outlet/{id}/delete', [CSEController::class, 'deleteOutlet'])->name('cse.outlet.delete');
-    });
+});
 });
 
 // Logout universal

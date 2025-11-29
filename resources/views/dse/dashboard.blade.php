@@ -99,7 +99,7 @@
         }
         /* Ikon saat di-hover/active harus putih */
         .menu-item:hover .menu-item-icon, .menu-item.active .menu-item-icon {
-            color: white;
+            color: red;
         }
         
         /* CSS Tombol Logout di Footer */

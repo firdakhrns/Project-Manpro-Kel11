@@ -7,8 +7,7 @@ use App\Models\StockLog;
 use App\Models\ReturnLog;
 use App\Models\Outlet;
 use App\Models\User;
-use App\Models\SalesLog;
-use App\Models\Feedback;
+use App\Models\Feedbacks;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; 
@@ -21,59 +20,87 @@ class CSEController extends Controller
 public function viewStok(Request $request)
 {
     $userRegion = Auth::guard('shared')->user()->region;
-    
-    // Query dasar dengan relasi
-    $query = StockLog::with(['user', 'outlet', 'items.product'])
-                    ->whereHas('user', function($query) use ($userRegion) {
-                        $query->where('region', $userRegion);
-                    });
+    $startDate = $request->input('start_date');
+    $endDate = $request->input('end_date');
+    $dseId = $request->input('dse_id');
 
-    // Filter tanggal
-    if ($request->has('start_date') && $request->start_date) {
-        $query->whereDate('date', '>=', $request->start_date);
+    // Tentukan apakah filter sudah diterapkan (minimal satu parameter ada)
+    $isFiltered = $startDate || $endDate || $dseId;
+
+    // **VALIDASI TANGGAL**
+    if ($startDate && $endDate) {
+        try {
+            $startCarbon = Carbon::parse($startDate);
+            $endCarbon = Carbon::parse($endDate);
+
+            if ($startCarbon->greaterThan($endCarbon)) {
+                $isFiltered = false; // Batalkan query
+                return redirect()->back()->withErrors([
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                ])->withInput();
+            }
+        } catch (\Exception $e) {
+            $isFiltered = false; // Batalkan query
+            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+        }
     }
-    if ($request->has('end_date') && $request->end_date) {
-        $query->whereDate('date', '<=', $request->end_date);
-    }
+    // END VALIDASI TANGGAL
 
-    // Filter DSE ID
-    if ($request->has('dse_id') && $request->dse_id) {
-        $query->where('username_id', $request->dse_id);
-    }
-
-    $stokData = $query->orderBy('date', 'desc')->get();
-
-    // Daftar DSE untuk dropdown filter
-    $dseList = User::where('role', 'DSE')
-                  ->where('region', $userRegion)
-                  ->get();
-
-    // Format data untuk pivot table
+    $stokData = collect(); 
     $pivotData = [];
     $productHeaders = [];
+    
+    // DSE List tetap harus ada untuk dropdown
+    $dseList = User::where('role', 'DSE')->where('region', $userRegion)->get(); 
 
-    foreach ($stokData as $log) {
-        $dseId = $log->username_id;
+    if ($isFiltered) {
+        // 1. QUERY DATA
+        $query = StockLog::with(['user', 'outlet', 'items.product'])
+                        ->whereHas('user', function($query) use ($userRegion) {
+                            $query->where('region', $userRegion);
+                        });
+
+        if ($startDate) {
+            $query->whereDate('date', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('date', '<=', $endDate);
+        }
+        if ($dseId) {
+            $query->where('username_id', $dseId);
+        }
+
+        $stokData = $query->orderBy('date', 'desc')->get();
+
+        // 2. LOGIKA PIVOT DATA (Hanya dijalankan jika ada filter)
+        // Pastikan Anda memanggil relasi items.product di query utama
         
-        foreach ($log->items as $item) {
-    $productName = $item->product->product_name;
-    
-    if (!in_array($productName, $productHeaders)) {
-        $productHeaders[] = $productName;
+        foreach ($stokData as $log) {
+            $dseId = $log->username_id;
+            
+            foreach ($log->items as $item) {
+                // Periksa apakah $item->product ada, untuk menghindari error jika relasi kosong
+                $productName = $item->product->product_name ?? 'Produk Tidak Diketahui'; 
+        
+                if (!in_array($productName, $productHeaders)) {
+                    $productHeaders[] = $productName;
+                }
+                
+                if (!isset($pivotData[$dseId])) {
+                    $pivotData[$dseId] = [];
+                }
+                
+                if (!isset($pivotData[$dseId][$productName])) {
+                    $pivotData[$dseId][$productName] = 0;
+                }
+                
+                $pivotData[$dseId][$productName] += $item->quantity;
+            }
+        }
     }
+    // Jika $isFiltered false (termasuk saat validasi gagal atau tanpa filter), 
+    // $stokData, $pivotData, dan $productHeaders akan tetap kosong.
     
-    if (!isset($pivotData[$dseId])) {
-        $pivotData[$dseId] = [];
-    }
-    
-    if (!isset($pivotData[$dseId][$productName])) {
-        $pivotData[$dseId][$productName] = 0;
-    }
-    
-    $pivotData[$dseId][$productName] += $item->quantity;
-}
-    }
-
     return view('cse.view_stok', compact('stokData', 'pivotData', 'productHeaders', 'dseList'));
 }
 
@@ -83,13 +110,44 @@ public function viewStok(Request $request)
 public function viewRetur(Request $request)
 {
     $userRegion = Auth::guard('shared')->user()->region;
+    $startDate = $request->input('start_date'); // Ambil input
+    $endDate = $request->input('end_date');     // Ambil input
+
+    // **VALIDASI TANGGAL**
+    if ($startDate && $endDate) {
+        try {
+            $startCarbon = Carbon::parse($startDate);
+            $endCarbon = Carbon::parse($endDate);
+
+            if ($startCarbon->greaterThan($endCarbon)) {
+                return redirect()->back()->withErrors([
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                ])->withInput();
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+        }
+    }
+
+    $allProductNames = ReturnLog::whereHas('user', function($query) use ($userRegion) {
+        $query->where('region', $userRegion);
+    })
+    ->with('items.product')
+    ->get()
+    ->pluck('items.*.product.product_name')
+    ->flatten()
+    ->unique()
+    ->sort() // Sortir agar urutan lebih teratur
+    ->toArray();
     
-    // Query dasar dengan relasi
+    $productHeaders = $allProductNames; // Gunakan ini sebagai header
+    
+    // ... (Query Log Retur)
     $query = ReturnLog::with(['user', 'outlet', 'items.product'])
                      ->whereHas('user', function($query) use ($userRegion) {
                          $query->where('region', $userRegion);
                      });
-
+    
     // Filter tanggal
     if ($request->has('start_date') && $request->start_date) {
         $query->whereDate('date', '>=', $request->start_date);
@@ -97,6 +155,8 @@ public function viewRetur(Request $request)
     if ($request->has('end_date') && $request->end_date) {
         $query->whereDate('date', '<=', $request->end_date);
     }
+
+    
 
     // Filter DSE ID
     if ($request->has('dse_id') && $request->dse_id) {
@@ -112,26 +172,34 @@ public function viewRetur(Request $request)
 
     // Format data untuk pivot table
     $pivotData = [];
-    $productHeaders = [];
 
+    // INISIALISASI pivotData dengan SEMUA header produk untuk SEMUA DSE
+    $initialProductCounts = array_fill_keys($productHeaders, 0);
+
+    foreach ($dseList as $dse) {
+        // Inisialisasi setiap DSE dengan semua header produk bernilai 0
+        $pivotData[$dse->id_dse] = $initialProductCounts;
+    }
+    
+    // 2. Isi data retur hanya untuk log yang terfilter
     foreach ($returData as $log) {
         $dseId = $log->username_id;
+        
+        // Pastikan DSE sudah ada di pivotData (Harusnya sudah ada dari inisialisasi)
+        if (!isset($pivotData[$dseId])) {
+            $pivotData[$dseId] = $initialProductCounts; // Fallback jika DSE tidak ada di dseList
+        }
         
         foreach ($log->items as $item) {
             $productName = $item->product->product_name;
             
-            if (!in_array($productName, $productHeaders)) {
-                $productHeaders[] = $productName;
+            // HANYA tambah jika nama produk ada di productHeaders
+            if (isset($pivotData[$dseId][$productName])) {
+                $pivotData[$dseId][$productName] += $item->quantity;
             }
-            
-            if (!isset($pivotData[$dseId])) {
-                $pivotData[$dseId] = array_fill_keys($productHeaders, 0);
-            }
-            
-            $pivotData[$dseId][$productName] += $item->quantity;
         }
     }
-
+    
     return view('cse.view_retur', compact('returData', 'pivotData', 'productHeaders', 'dseList'));
 }
 
@@ -163,6 +231,23 @@ public function viewRetur(Request $request)
         // Tentukan nilai query date, default 30 hari terakhir jika filter belum lengkap
         $queryStartDate = $startDate ? $startDate : Carbon::today()->subDays(30)->toDateString();
         $queryEndDate = $endDate ? $endDate : Carbon::today()->toDateString();
+
+        if ($startDate && $endDate) {
+        try {
+            $startCarbon = Carbon::parse($startDate);
+            $endCarbon = Carbon::parse($endDate);
+
+            if ($startCarbon->greaterThan($endCarbon)) {
+                // Baris ini yang mengirim error kembali ke view
+                return redirect()->back()->withErrors([
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                ])->withInput();
+            }
+        } catch (\Exception $e) {
+            // Validasi format tanggal (walaupun input type=date sudah membantu)
+            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+        }
+    }
         
         $performanceData = collect(); // Default data kosong
 
@@ -243,13 +328,29 @@ public function viewRetur(Request $request)
     public function updateOutlet(Request $request, $id)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:outlets,name,' . $id,
-            'address' => 'required|string',
-            'owner_name' => 'required|string|max:255',
-            'phone' => 'required|string',
-            'status' => 'required|in:Aktif,Non-Aktif',
-            'region' => 'required|string',
-        ]);
+        'name' => [
+            'required',
+            'string',
+            'max:255',
+            'unique:outlets,name,' . $id,
+            'regex:/^[\pL\pN\s\-\.]+$/u', 
+        ],
+        
+
+        'address' => 'required|string|max:500', 
+        
+        'owner_name' => [
+            'required',
+            'string',
+            'max:255',
+            'regex:/^[\pL\s]+$/u', 
+        ],
+        
+        'phone' => 'required|string|max:12|numeric', 
+        
+        'status' => 'required|in:Aktif,Non-Aktif',
+        'region' => 'required|string',
+    ]);
 
         try {
             $outlet = Outlet::findOrFail($id);
@@ -289,7 +390,16 @@ public function viewRetur(Request $request)
     /**
      * Halaman kritik & saran untuk DSE
      */
+    
     public function kritikSaran()
+    {
+        return view('cse.kritik_saran'); // Dashboard pilihan
+    }
+
+    /**
+     * Form Input Kritik Saran
+     */
+    public function showInputKritikSaran()
     {
         $userRegion = Auth::guard('shared')->user()->region;
         
@@ -297,7 +407,7 @@ public function viewRetur(Request $request)
                       ->where('region', $userRegion)
                       ->get();
         
-        return view('cse.kritik_saran', compact('dseList'));
+        return view('cse.input_kritik_saran', compact('dseList'));
     }
 
     /**
@@ -312,7 +422,7 @@ public function viewRetur(Request $request)
         ]);
 
         // Simpan ke database
-        Feedback::create([
+        Feedbacks::create([
             'cse_id' => Auth::guard('shared')->user()->username,
             'dse_target' => $request->dse_target,
             'type' => strtolower($request->jenis_feedback),
@@ -330,6 +440,87 @@ public function viewRetur(Request $request)
 
         return redirect()->route('cse.kritik_saran')
                          ->with('success', 'Kritik dan saran berhasil dikirim!');
+    }
+
+    public function showHasilKritikSaran(Request $request)
+{
+    $userRegion = Auth::guard('shared')->user()->region;
+    $startDate = $request->input('start_date');
+    $endDate = $request->input('end_date');
+
+    // **TAMBAHKAN VALIDASI TANGGAL DISINI**
+    if ($startDate && $endDate) {
+        try {
+            $startCarbon = Carbon::parse($startDate);
+            $endCarbon = Carbon::parse($endDate);
+
+            if ($startCarbon->greaterThan($endCarbon)) {
+                // Baris ini yang mengirim error kembali ke view
+                return redirect()->back()->withErrors([
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                ])->withInput();
+            }
+        } catch (\Exception $e) {
+            // Validasi format tanggal (walaupun input type=date sudah membantu)
+            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+        }
+    }
+    
+    // Inisialisasi query seperti biasa
+    $query = Feedbacks::where('cse_id', '!=', null) 
+                 ->whereHas('dseTarget', function($q) use ($userRegion) {
+                     $q->where('region', $userRegion);
+                 })
+                 ->orderBy('created_at', 'desc');
+
+    // Filter tanggal
+    if ($startDate) {
+        $query->whereDate('created_at', '>=', $startDate);
+    }
+    if ($endDate) {
+        $query->whereDate('created_at', '<=', $endDate);
+    }
+
+    $feedbackData = $query->get();
+
+    return view('cse.hasil_kritik_saran', compact('feedbackData'));
+}
+
+    /**
+     * Export PDF Kritik Saran
+     */
+    public function exportKritikSaranPDF(Request $request)
+    {
+        $userRegion = Auth::guard('shared')->user()->region;
+    
+    // Gunakan query dasar yang sama dengan showHasilKritikSaran
+    $query = Feedbacks::where('cse_id', '!=', null) 
+                     ->whereHas('dseTarget', function($q) use ($userRegion) {
+                         $q->where('region', $userRegion);
+                     })
+                     ->orderBy('created_at', 'desc');
+
+    // Filter Tanggal
+    if ($request->has('start_date') && $request->start_date) {
+        $query->whereDate('created_at', '>=', $request->start_date);
+    }
+    if ($request->has('end_date') && $request->end_date) {
+        $query->whereDate('created_at', '<=', $request->end_date);
+    }
+    
+    // (Jika ada filter lain di URL, masukkan di sini)
+    
+    $kritikSaran = $query->get();
+    
+    // Tambahkan validasi jika data kosong sebelum export
+    if ($kritikSaran->isEmpty()) {
+        return redirect()->back()->with('error', 'Tidak ada data untuk diekspor berdasarkan filter yang dipilih.')->withInput();
+    }
+    
+    $pdf = Pdf::loadView('cse.export.kritik_saran_pdf', compact('kritikSaran'));
+    
+    $filename = 'kritik-saran-' . $userRegion . '-' . date('Y-m-d') . '.pdf';
+    return $pdf->download($filename);
     }
 
     // Di CSEController

@@ -34,6 +34,16 @@
         <h1 class="text-3xl font-extrabold text-center mb-2">Data Hasil Performa DSE</h1>
         <p class="text-gray-500 text-center mb-8">Evaluasi Berdasarkan Rasio Retur Regional</p>
 
+         @if ($errors->any())
+    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg p-4">
+        <ul class="list-disc list-inside space-y-1">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
         {{-- FORM FILTER PERIODE --}}
         <form method="GET" action="{{ route('cse.view_performa') }}" class="mb-8 p-6 border rounded-lg bg-gray-100">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">

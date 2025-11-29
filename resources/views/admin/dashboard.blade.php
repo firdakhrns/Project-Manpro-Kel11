@@ -46,7 +46,7 @@
         
         <!-- Header Kuning Dinamis -->
         <div class="header-box">
-            <h2 class="text-2xl font-extrabold mb-1 relative z-10">Selamat Datang, {{ Auth::guard('shared')->user()->username ?? 'Admin' }}!</h2>
+            <h2 class="text-2xl font-extrabold mb-1 relative z-10">Selamat Datang Admin!</h2>
             <p class="text-sm relative z-10">Monitoring pencatatan stok hari ini.</p>
             
             <!-- TAMBAHKAN CLASS datetime-box DI SINI -->
