@@ -534,7 +534,7 @@ class DatabaseSeeder extends Seeder
 
         DB::table('feedbacks')->insert([
             [
-                'cse_id' => 'admin_utama',
+                'cse_id' => 'manajer_penjualan',
                 'dse_target' => 'CSOB-BJM1',
                 'type' => 'saran',
                 'message' => 'Sebaiknya meningkatkan frekuensi kunjungan ke outlet Ummi Cell untuk memastikan stok selalu tersedia.',
@@ -543,7 +543,7 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $now->copy()->subDays(5)
             ],
             [
-                'cse_id' => 'admin_utama',
+                'cse_id' => 'manajer_penjualan',
                 'dse_target' => 'CSOB-BJM2',
                 'type' => 'kritik',
                 'message' => 'Laporan stok minggu ini belum lengkap, beberapa outlet penting belum dilaporkan. Harap segera dilengkapi.',
@@ -570,7 +570,7 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $now->copy()->subDays(1)
             ],
             [
-                'cse_id' => 'admin_utama',
+                'cse_id' => 'manajer_penjualan',
                 'dse_target' => 'CSOB-BJM5',
                 'type' => 'saran',
                 'message' => 'Bagus sekali performa penjualan di AA Ponsel. Pertahankan dan coba terapkan strategi yang sama di outlet lainnya.',

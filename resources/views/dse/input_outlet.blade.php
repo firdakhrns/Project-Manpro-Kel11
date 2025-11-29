@@ -115,11 +115,22 @@
         @endif
 
         @if(session('error'))
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-            <strong class="font-bold">Error!</strong>
-            <span class="block sm:inline">{{ session('error') }}</span>
-        </div>
-        @endif
+<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+    <strong class="font-bold">Error!</strong>
+    <span class="block sm:inline">{{ session('error') }}</span>
+</div>
+@endif
+
+@if ($errors->any())
+    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        <strong class="font-bold">Gagal Validasi!</strong>
+        <ul class="list-disc list-inside space-y-1">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 
         <form action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
             @csrf

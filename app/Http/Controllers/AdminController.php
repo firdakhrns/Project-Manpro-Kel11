@@ -48,13 +48,16 @@ class AdminController extends Controller
 
     public function riwayatPencatatan(Request $request)
     {
-        // 1. Ambil Filter dan Tetapkan Default
         $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
-        $dseIdFilter = $request->input('dse_id'); // Mengambil DSE ID dari dropdown
-        $tipe = $request->input('tipe', 'stok'); // stok, retur, all
+        $dseIdFilter = $request->input('dse_id');
+        $tipe = $request->input('tipe', 'stok');
 
-        try {
-            $tanggalCari = Carbon::parse($tanggal);
+        $request->validate([
+        'tanggal' => 'required|date|before_or_equal:today',
+        ]);
+    
+    try {
+        $tanggalCari = Carbon::parse($tanggal);
         } catch (\Exception $e) {
             $tanggalCari = Carbon::today();
         }
@@ -67,7 +70,6 @@ class AdminController extends Controller
         $productHeaders = Product::pluck('product_code')->toArray();
         $allDseKeys = User::where('role', 'DSE')->pluck('id_dse'); 
         
-        // 4. Struktur Data Agregat Global (Pivot Matrix)
         $pivotData = [];
         
         foreach ($allDseKeys as $id) {
@@ -165,10 +167,13 @@ public function createRetur()
     public function storeStok(Request $request)
     {
         $request->validate([
-            'username_id' => 'required|exists:users,id_dse',
-            'outlet_id' => 'required|exists:outlets,id',
-            'date' => 'required|date',
-        ]);
+        'username_id' => 'required|exists:users,id_dse',
+        'outlet_id' => 'required|exists:outlets,id',
+        'date' => 'required|date',
+        'stok.kp.*' => 'nullable|integer|min:0|max:500', 
+        'stok.v.*' => 'nullable|integer|min:0|max:500', 
+        // ---------------------------------
+    ]);
 
         DB::beginTransaction();
         try {
@@ -225,12 +230,13 @@ public function createRetur()
 
     public function storeRetur(Request $request)
     {
-        // PERBAIKAN: Field name harus 'username_id' bukan 'dse_id'
         $request->validate([
-            'username_id' => 'required|exists:users,id_dse', // PERBAIKAN: username_id
-            'outlet_id' => 'required|exists:outlets,id',
-            'date' => 'required|date',
-        ]);
+        'username_id' => 'required|exists:users,id_dse',
+        'outlet_id' => 'required|exists:outlets,id',
+        'date' => 'required|date',
+        'retur.kp.*' => 'nullable|integer|min:0|max:500', 
+        'retur.v.*' => 'nullable|integer|min:0|max:500', 
+    ]);
 
         DB::beginTransaction();
         try {
@@ -286,95 +292,6 @@ public function createRetur()
         }
     }
 
-    public function editStok($id)
-    {
-        $stok = StockLog::with('items.product')->findOrFail($id);
-        $dseList = User::where('role', 'DSE')->get();
-        $outlets = Outlet::all();
-        $products = Product::all();
-        
-        return view('admin.edit_stok', compact('stok', 'dseList', 'outlets', 'products'));
-    }
-
-    public function updateStok(Request $request, $id)
-    {
-        $request->validate([
-            'username_id' => 'required|exists:users,id_dse',
-            'outlet_id' => 'required|exists:outlets,id',
-            'date' => 'required|date',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $stok = StockLog::findOrFail($id);
-            
-            $stok->update([
-                'username_id' => $request->username_id,
-                'outlet_id' => $request->outlet_id,
-                'date' => $request->date,
-                'notes' => $request->notes,
-            ]);
-
-            if ($request->has('items')) {
-                foreach ($request->items as $itemId => $quantity) {
-                    $stokItem = StockLogItem::where('stock_log_id', $stok->id)
-                                           ->where('id', $itemId)
-                                           ->first();
-                    if ($stokItem && $quantity > 0) {
-                        $stokItem->update(['quantity' => $quantity]);
-                    } elseif ($stokItem && $quantity == 0) {
-                        $stokItem->delete();
-                    }
-                }
-            }
-
-            DB::commit();
-            return redirect()->route('admin.view_stok')->with('success', 'Data stok berhasil diupdate!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal mengupdate data stok: ' . $e->getMessage())->withInput();
-        }
-    }
-
-    public function deleteStok($id)
-    {
-        DB::beginTransaction();
-        try {
-            $stok = StockLog::findOrFail($id);
-            $stok->items()->delete();
-            $stok->delete();
-
-            DB::commit();
-            return redirect()->route('admin.view_stok')->with('success', 'Data stok berhasil dihapus!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal menghapus data stok: ' . $e->getMessage());
-        }
-    }
-
-    public function updateReturStatus(Request $request, $id)
-    {
-        $request->validate([
-            'status' => 'required|in:approved,rejected,pending',
-            'admin_notes' => 'nullable|string'
-        ]);
-
-        try {
-            $retur = ReturnLog::findOrFail($id);
-            $retur->update([
-                'status' => $request->status,
-                'admin_notes' => $request->admin_notes
-            ]);
-
-            return back()->with('success', 'Status retur berhasil diupdate!');
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal mengupdate status retur: ' . $e->getMessage());
-        }
-    }
-
     public function createOutlet()
     {
         $regions = [
@@ -391,12 +308,28 @@ public function createRetur()
     public function storeOutlet(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:outlets,name',
-            'address' => 'required|string',
-            'owner_name' => 'required|string|max:255',
-            'phone' => 'required|string',
-            'region' => 'required|string',
-        ]);
+        'name' => [
+            'required',
+            'string',
+            'max:255',
+            'unique:outlets,name,',
+            'regex:/^[\pL\pN\s\-\.]+$/u', 
+        ],
+        
+
+        'address' => 'required|string|max:500', 
+        
+        'owner_name' => [
+            'required',
+            'string',
+            'max:255',
+            'regex:/^[\pL\s]+$/u', 
+        ],
+        
+        'phone' => 'required|string|max:12|numeric', 
+        
+        'region' => 'required|string',
+    ]);
 
         try {
             Outlet::create([
@@ -433,13 +366,28 @@ public function createRetur()
     public function updateOutlet(Request $request, $id)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:outlets,name,' . $id,
-            'address' => 'required|string',
-            'owner_name' => 'required|string|max:255',
-            'phone' => 'required|string',
-            'status' => 'required|in:Aktif,Non-Aktif',
-            'region' => 'required|string',
-        ]);
+        'name' => [
+            'required',
+            'string',
+            'max:255',
+            'unique:outlets,name,' . $id,
+            'regex:/^[\pL\pN\s\-\.]+$/u', 
+        ],
+        
+        'address' => 'required|string|max:500', 
+        
+        'owner_name' => [
+            'required',
+            'string',
+            'max:255',
+            'regex:/^[\pL\s]+$/u', 
+        ],
+        
+        'phone' => 'required|string|max:12|numeric', 
+        
+        'status' => 'required|in:Aktif,Non-Aktif',
+        'region' => 'required|string',
+    ]);
 
         try {
             $outlet = Outlet::findOrFail($id);
@@ -474,40 +422,6 @@ public function createRetur()
             DB::rollBack();
             return back()->with('error', 'Gagal menghapus outlet: ' . $e->getMessage());
         }
-    }
-
-    public function exportStok(Request $request)
-    {
-        $request->validate([
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date'
-        ]);
-
-        $startDate = $request->start_date ?? now()->subMonth()->format('Y-m-d');
-        $endDate = $request->end_date ?? now()->format('Y-m-d');
-        
-        $stokData = StockLog::with(['user', 'outlet', 'items.product'])
-                          ->whereBetween('date', [$startDate, $endDate])
-                          ->get();
-
-        return view('admin.export.stok_excel', compact('stokData', 'startDate', 'endDate'));
-    }
-
-    public function exportRetur(Request $request)
-    {
-        $request->validate([
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date'
-        ]);
-
-        $startDate = $request->start_date ?? now()->subMonth()->format('Y-m-d');
-        $endDate = $request->end_date ?? now()->format('Y-m-d');
-        
-        $returData = ReturnLog::with(['user', 'outlet', 'items.product'])
-                            ->whereBetween('date', [$startDate, $endDate])
-                            ->get();
-
-        return view('admin.export.retur_excel', compact('returData', 'startDate', 'endDate'));
     }
 
     public function exportOutletPdf(Request $request)

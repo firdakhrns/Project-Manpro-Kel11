@@ -126,19 +126,33 @@
 
                 <!-- Password Field -->
                 <div class="mb-7">
-                    <div class="flex justify-between items-center">
-                        <label class="block text-sm font-bold text-gray-800 mb-1">
-                            Kata Sandi
-                        </label>
-                        <a href="#" class="text-sm text-gray-500 hover:text-gray-700">Lupa kata sandi?</a>
-                    </div>
-                    <input
-                        type="password"
-                        name="password"
-                        class="block w-full px-3 py-2 border border-gray-300 focus:border-blue-600 rounded-md outline-none"
-                        placeholder="Masukkan Kata Sandi"
-                        required>
-                </div>
+    <div class="flex justify-between items-center">
+        <label class="block text-sm font-bold text-gray-800 mb-1">
+            Kata Sandi
+        </label>
+    </div>
+    <div class="relative">
+        <input
+            type="password"
+            name="password"
+            id="password_input"
+            class="block w-full px-3 py-2 border border-gray-300 focus:border-blue-600 rounded-md outline-none pr-10"
+            placeholder="Masukkan Kata Sandi"
+            required>
+        
+        {{-- Tombol Mata / Toggle --}}
+        <button type="button" id="toggle_password" 
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700">
+            <svg id="icon_eye" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <svg id="icon_eye_slash" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 1.096 0 2.164.195 3.14.568M19 12c-1.274 4.057-5.064 7-9.542 7-1.096 0-2.164-.195-3.14-.568m5.679 2.518a4 4 0 01-5.657-5.657m1.414 1.414a2 2 0 012.828 0" />
+            </svg>
+        </button>
+    </div>
+</div>
 
                 <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-md transition duration-150 shadow-md" style="background-color: #E21B21;">
 
@@ -148,5 +162,28 @@
             </form>
         </div>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const togglePassword = document.getElementById('toggle_password');
+        const passwordInput = document.getElementById('password_input');
+        const iconEye = document.getElementById('icon_eye');
+        const iconEyeSlash = document.getElementById('icon_eye_slash');
+
+        togglePassword.addEventListener('click', function (e) {
+            // Toggle type atribut dari password input
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle ikon mata
+            if (type === 'text') {
+                iconEye.classList.add('hidden');
+                iconEyeSlash.classList.remove('hidden');
+            } else {
+                iconEye.classList.remove('hidden');
+                iconEyeSlash.classList.add('hidden');
+            }
+        });
+    });
+</script>
 </body>
 </html>

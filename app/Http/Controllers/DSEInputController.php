@@ -57,8 +57,8 @@ class DSEInputController extends Controller
         $request->validate([
             'outlet_id' => 'required|exists:outlets,id',
             'stok' => 'nullable|array',
-            'stok.kp.*' => 'nullable|integer|min:0',
-            'stok.v.*' => 'nullable|integer|min:0',
+            'stok.kp.*' => 'nullable|integer|min:0|max:500',
+            'stok.v.*' => 'nullable|integer|min:0|max:500',
         ]);
         
         $allStokInputs = array_merge($request->input('stok.kp', []), $request->input('stok.v', []));
@@ -120,15 +120,51 @@ class DSEInputController extends Controller
 
     public function storeRetur(Request $request)
     {
-        $request->validate([
-            'outlet_id' => 'required|exists:outlets,id',
-            'retur' => 'nullable|array',
-            'retur.kp.*' => 'nullable|integer|min:0',
-            'retur.v.*' => 'nullable|integer|min:0',
-        ]);
-        
-        $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
-        $productsMap = $this->getProductsMap();
+        $validator = Validator::make($request->all(), [
+        'outlet_id' => 'required|exists:outlets,id',
+        'retur' => 'nullable|array',
+        'retur.kp.*' => 'nullable|integer|min:0|max:500', 
+        'retur.v.*' => 'nullable|integer|min:0|max:500',
+    ]);
+    
+    // Hentikan jika validasi dasar gagal
+    if ($validator->fails()) {
+        return back()->withErrors($validator)->withInput();
+    }
+    
+    // 2. Validasi Bisnis: Retur tidak boleh lebih dari Stok Terakhir
+    $dseId = Auth::user()->id_dse;
+    $outletId = $request->outlet_id;
+    $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
+    $productsMap = $this->getProductsMap();
+    $errors = [];
+
+    foreach ($allReturInputs as $inputKey => $returQuantity) {
+        $returQuantity = (int) $returQuantity;
+        if ($returQuantity <= 0) continue;
+
+        $productCode = $this->productMapping[$inputKey] ?? null;
+        $productId = $productsMap[$productCode] ?? null;
+
+        if ($productId) {
+            $lastStockItem = StockLogItem::where('product_id', $productId)
+                ->whereHas('stockLog', function($q) use ($dseId, $outletId) {
+                    $q->where('username_id', $dseId)->where('outlet_id', $outletId);
+                })
+                ->orderBy('created_at', 'desc')
+                ->first();
+                
+            $stokTersedia = $lastStockItem ? $lastStockItem->quantity : 0;
+            
+            if ($returQuantity > $stokTersedia) {
+                $errors[$inputKey] = "Retur ($returQuantity) melebihi stok tersedia ($stokTersedia) untuk produk ID $productCode.";
+            }
+        }
+    }
+    
+    if (!empty($errors)) {
+        return back()->withErrors($errors)->withInput();
+    }
 
         DB::beginTransaction();
         try {
@@ -204,13 +240,31 @@ class DSEInputController extends Controller
 
     // Validasi
     $request->validate([
-        'nama_outlet' => 'required|string|max:255',
-        'alamat_outlet' => 'required|string',
-        'nama_pemilik' => 'required|string|max:255',
-        'no_telepon_pemilik' => 'required|string',
+
+        'nama_outlet' => [
+            'required',
+            'string',
+            'max:255',
+            'unique:outlets,name', // Unique check saat buat baru
+            'regex:/^[\pL\pN\s\-\.]+$/u', // Huruf, Angka, Spasi, Hyphen, Dot
+        ],
+        
+        'alamat_outlet' => 'required|string|max:500', 
+        
+        'nama_pemilik' => [
+            'required',
+            'string',
+            'max:255',
+            'regex:/^[\pL\s]+$/u', // Hanya Huruf dan Spasi
+        ],
+        
+        'no_telepon_pemilik' => 'required|string|max:12|numeric',
+        
         'tanggal_bergabung' => 'required|date',
         'tampak_depan_outlet_file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         'foto_etalase_file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        
+        'no_telepon_darurat' => 'nullable|string|max:12|numeric', 
     ]);
 
     Log::info('Validation passed');
