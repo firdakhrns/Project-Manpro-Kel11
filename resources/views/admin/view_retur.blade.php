@@ -112,7 +112,33 @@
             <p class="text-gray-700 text-center mb-8">Pilih DSE dan Outlet sebelum mencatat jumlah retur.</p>
         </div>
 
-        <form id="returFormAdmin" action="{{ route('admin.view_retur') }}" method="POST">
+        @if(session('success'))
+<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+    <strong class="font-bold">Sukses!</strong>
+    <span class="block sm:inline">{{ session('success') }}</span>
+</div>
+@endif
+
+@if(session('error'))
+<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+    <strong class="font-bold">Error!</strong>
+    <span class="block sm:inline">{{ session('error') }}</span>
+</div>
+@endif
+
+{{-- BLOK VALIDASI LARAVEL $errors->any() --}}
+@if ($errors->any())
+    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        <strong class="font-bold">Gagal Validasi Input:</strong>
+        <ul class="list-disc list-inside space-y-1">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+        <form id="returFormAdmin" action="{{ route('admin.view_retur.store') }}" method="POST">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -145,7 +171,7 @@
                 </div>
             </div>
 
-            <div class="grid form-grid">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-6">
                 
                 <div id="kartu-perdana-section" class="category-section" data-product-type="kartu-perdana">
                     <h2 class="text-xl font-bold mb-4">Kartu Perdana</h2>

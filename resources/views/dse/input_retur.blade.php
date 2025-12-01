@@ -116,6 +116,17 @@
         </ul>
     </div>
 @endif
+@if (session('custom_errors'))
+    {{-- Ini menangani RETUR > STOK --}}
+    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        <strong class="font-bold">Gagal Validasi Bisnis!</strong>
+        <ul class="list-disc list-inside space-y-1">
+            @foreach (session('custom_errors') as $error)
+                <li>⚠️ {{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 
         <div class="mb-6">
             <label class="block text-sm font-bold text-gray-800 mb-2" for="outlet_select_retur">Outlet Retur</label>
@@ -141,9 +152,9 @@
 
             <input type="hidden" name="outlet_id" id="outlet_id_hidden_retur">
 
-            <div class="grid grid-cols-2 gap-x-12 gap-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-6">
                 
-                <div id="kartu-perdana-section" class="category-section">
+                <div id="kartu-perdana-section" class="category-section md:col-span-1">
                     <h2 class="text-xl font-bold mb-4">Kartu Perdana</h2>
                     <div class="grid grid-cols-1 gap-6">
                         @php $kp_products = ['3 GB', '6 GB', '9 GB', '20 GB']; @endphp
@@ -157,7 +168,7 @@
                     </div>
                 </div>
 
-                <div id="voucher-section" class="category-section">
+                <div id="voucher-section" class="category-section md:col-span-2">
                     <h2 class="text-xl font-bold mb-4">Voucher</h2>
                     <div class="grid grid-cols-2 gap-x-6 gap-y-6">
                         @php

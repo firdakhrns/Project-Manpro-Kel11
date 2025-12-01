@@ -152,9 +152,12 @@
                         @php $grandTotal += $rowTotal; @endphp
                     @empty
                         <tr>
-                            {{-- Gunakan count($productHeaders ?? []) + 2 untuk colspan --}}
                             <td colspan="{{ count($productHeaders ?? []) + 2 }}" class="text-center py-6 text-gray-500">
-                                Tidak ada data retur yang tercatat sesuai filter.
+                                @if (!($isFiltered ?? false))
+                                    Silakan terapkan filter Tanggal atau DSE ID untuk menampilkan data stok.
+                                @else
+                                    Tidak ada data stok yang tercatat sesuai filter yang Anda terapkan.
+                                @endif
                             </td>
                         </tr>
                     @endforelse

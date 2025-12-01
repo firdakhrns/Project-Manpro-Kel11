@@ -54,12 +54,19 @@ class DSEInputController extends Controller
 
     public function storeStok(Request $request)
     {
-        $request->validate([
-            'outlet_id' => 'required|exists:outlets,id',
-            'stok' => 'nullable|array',
-            'stok.kp.*' => 'nullable|integer|min:0|max:500',
-            'stok.v.*' => 'nullable|integer|min:0|max:500',
-        ]);
+        $messages = [
+        'stok.kp.*.max' => 'Jumlah stok Kartu Perdana tidak boleh melebihi :max.',
+        'stok.v.*.max' => 'Jumlah stok Voucher tidak boleh melebihi :max.',
+        'stok.kp.*.min' => 'Jumlah stok harus minimal :min.',
+        'stok.v.*.min' => 'Jumlah stok harus minimal :min.',
+    ];
+    
+    $request->validate([
+        'outlet_id' => 'required|exists:outlets,id',
+        'stok' => 'nullable|array',
+        'stok.kp.*' => 'nullable|integer|min:0|max:500',
+        'stok.v.*' => 'nullable|integer|min:0|max:500',
+    ], $messages);
         
         $allStokInputs = array_merge($request->input('stok.kp', []), $request->input('stok.v', []));
         $productsMap = $this->getProductsMap();
@@ -120,14 +127,21 @@ class DSEInputController extends Controller
 
     public function storeRetur(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $messages = [
+        'retur.kp.*.max' => 'Jumlah retur Kartu Perdana tidak boleh melebihi :max.',
+        'retur.v.*.max' => 'Jumlah retur Voucher tidak boleh melebihi :max.',
+        'retur.kp.*.min' => 'Jumlah retur harus minimal :min.',
+        'retur.v.*.min' => 'Jumlah retur harus minimal :min.',
+    ];
+    
+    $validator = Validator::make($request->all(), [
         'outlet_id' => 'required|exists:outlets,id',
         'retur' => 'nullable|array',
         'retur.kp.*' => 'nullable|integer|min:0|max:500', 
         'retur.v.*' => 'nullable|integer|min:0|max:500',
-    ]);
+    ], $messages);
     
-    // Hentikan jika validasi dasar gagal
+    // Hentikan jika validasi dasar gagal (max:500, dll.)
     if ($validator->fails()) {
         return back()->withErrors($validator)->withInput();
     }
@@ -137,15 +151,15 @@ class DSEInputController extends Controller
     $outletId = $request->outlet_id;
     $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
     $productsMap = $this->getProductsMap();
-    $errors = [];
-
+    $errors = []; // Array ini yang mengumpulkan semua error, termasuk multiple product
+    
     foreach ($allReturInputs as $inputKey => $returQuantity) {
         $returQuantity = (int) $returQuantity;
         if ($returQuantity <= 0) continue;
-
+    
         $productCode = $this->productMapping[$inputKey] ?? null;
         $productId = $productsMap[$productCode] ?? null;
-
+    
         if ($productId) {
             $lastStockItem = StockLogItem::where('product_id', $productId)
                 ->whereHas('stockLog', function($q) use ($dseId, $outletId) {
@@ -157,12 +171,14 @@ class DSEInputController extends Controller
             $stokTersedia = $lastStockItem ? $lastStockItem->quantity : 0;
             
             if ($returQuantity > $stokTersedia) {
-                $errors[$inputKey] = "Retur ($returQuantity) melebihi stok tersedia ($stokTersedia) untuk produk ID $productCode.";
+                // 💥 PERUBAHAN: Pesan yang lebih umum, informatif, dan sopan
+                $errors[$inputKey] = "Gagal: Jumlah Retur untuk produk $productCode ($returQuantity) melebihi Stok Terakhir yang tercatat ($stokTersedia). Harap periksa riwayat stok atau input stok terlebih dahulu.";
             }
         }
     }
     
     if (!empty($errors)) {
+
         return back()->withErrors($errors)->withInput();
     }
 
@@ -240,38 +256,51 @@ class DSEInputController extends Controller
 
     // Validasi
     $request->validate([
-
-        'nama_outlet' => [
+        'nama_outlet' => ['required', 'string', 'max:255', 'unique:outlets,name', 'regex:/^[\pL\pN\s\-\.]+$/u'],
+        
+        'alamat_outlet' => [
             'required',
             'string',
-            'max:255',
-            'unique:outlets,name', // Unique check saat buat baru
-            'regex:/^[\pL\pN\s\-\.]+$/u', // Huruf, Angka, Spasi, Hyphen, Dot
+            'max:500',
+            'regex:/^[\pL\pN\s\-\/,\.]+$/u',
+        ], 
+        
+        'nama_pemilik' => ['required', 'string', 'max:255', 'regex:/^[\pL\s]+$/u'], 
+        
+        'no_telepon_pemilik' => [
+            'required', 
+            'string', 
+            'max:12', 
+            'regex:/^[0-9]+$/', 
         ],
-        
-        'alamat_outlet' => 'required|string|max:500', 
-        
-        'nama_pemilik' => [
+        'no_telepon_darurat' =>  [
             'required',
-            'string',
-            'max:255',
-            'regex:/^[\pL\s]+$/u', // Hanya Huruf dan Spasi
-        ],
-        
-        'no_telepon_pemilik' => 'required|string|max:12|numeric',
+            'nullable', 
+            'string', 
+            'max:12', 
+            'regex:/^[0-9]+$/', 
+        ], 
         
         'tanggal_bergabung' => 'required|date',
-        'tampak_depan_outlet_file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'foto_etalase_file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        
-        'no_telepon_darurat' => 'nullable|string|max:12|numeric', 
+
+        'tampak_depan_outlet_file' => [
+            'required', 
+            'image',
+            'mimes:jpeg,png,jpg,gif',
+            'max:2048',
+        ], 
+        'foto_etalase_file' => [
+            'required',
+            'image',
+            'mimes:jpeg,png,jpg,gif',
+            'max:2048',
+        ],
     ]);
 
     Log::info('Validation passed');
 
     DB::beginTransaction();
     try {
-        // Handle file upload untuk foto depan outlet
         $frontPhotoPath = null;
         if ($request->hasFile('tampak_depan_outlet_file')) {
             $frontPhoto = $request->file('tampak_depan_outlet_file');
@@ -280,7 +309,6 @@ class DSEInputController extends Controller
             Log::info('Front photo stored: ' . $frontPhotoPath);
         }
 
-        // Handle file upload untuk foto etalase
         $displayPhotoPath = null;
         if ($request->hasFile('foto_etalase_file')) {
             $displayPhoto = $request->file('foto_etalase_file');
@@ -339,6 +367,22 @@ class DSEInputController extends Controller
         } catch (\Exception $e) {
             $tanggalCari = Carbon::today();
         }
+
+        $outletName = 'N/A (Log Tidak Ditemukan)';
+    
+    // Pilih model dasar berdasarkan tipe
+    $logQuery = ($tipe === 'retur') ? ReturnLog::query() : StockLog::query();
+            
+    // Cari log pertama yang sesuai filter tanggal dan DSE, dengan relasi outlet
+    $logWithOutlet = $logQuery
+        ->where('username_id', $dseId)
+        ->whereDate('date', $tanggalCari->toDateString())
+        ->with('outlet:id,name') // Load hanya kolom yang kita butuhkan
+        ->first(); 
+
+    if ($logWithOutlet && $logWithOutlet->outlet) {
+        $outletName = $logWithOutlet->outlet->name;
+    }
         
         $dataToDisplay = [];
         $judulRiwayat = '';
@@ -504,6 +548,6 @@ class DSEInputController extends Controller
             $judulRiwayat = 'Riwayat Semua';
         }
 
-        return view('dse.riwayat_pencatatan', compact('dataToDisplay', 'dseId', 'tanggalFilter', 'tipe', 'judulRiwayat'));
+        return view('dse.riwayat_pencatatan', compact('dataToDisplay', 'dseId', 'tanggalFilter', 'tipe', 'judulRiwayat', 'outletName'));
     }
 }

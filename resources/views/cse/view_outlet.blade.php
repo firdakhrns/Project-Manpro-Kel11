@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Outlet Aktif Admin</title>
+    <title>Daftar Outlet Aktif</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; }
@@ -160,17 +160,15 @@
                         <th>Nama Pemilik</th>
                         <th>No. HP Pemilik</th>
                         <th>Status Outlet</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($outlets as $outlet)
                         <tr>
                             <td class="pl-4">
-                                {{-- Kolom Edit dan Nama Outlet digabung --}}
                                 <a href="{{ route('cse.outlet.edit', $outlet->id) }}" class="edit-group">
                                     <span class="edit-icon-btn">
-                                        {{-- Ikon Edit/Pensil --}}
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21H3v-3.5L14.732 3.732z" />
                                         </svg>
@@ -178,22 +176,33 @@
                                     <span>{{ $outlet->name }}</span>
                                 </a>
                             </td>
+                            
                             <td>{{ $outlet->address }}</td>
                             <td>{{ $outlet->owner_name }}</td>
                             <td>{{ $outlet->phone }}</td>
+                            
                             <td>
                                 <span class="status-badge status-{{ str_replace(' ', '', $outlet->status) }}">
                                     {{ $outlet->status }}
                                 </span>
                             </td>
+                            
                             <td>
-                                <div class="action-buttons">
-                                    {{-- Tombol Hapus dengan Konfirmasi --}}
-                                    <form method="POST" action="{{ route('admin.outlet.delete', $outlet->id) }}" 
-                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus outlet {{ $outlet->name }}?')">
+                                <div class="action-buttons justify-center">
+                                    
+                                    <a href="{{ route('cse.outlet.detail', $outlet->id) }}" 
+                                       class="btn-delete px-3 py-1" 
+                                       style="background-color: #10b981; /* Hijau */">
+                                        Detail
+                                    </a> 
+                                    
+                                    {{-- Tombol Hapus --}}
+                                    <form method="POST" action="{{ route('cse.outlet.delete', $outlet->id) }}" 
+                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus outlet {{ $outlet->name }}?')"
+                                          class="inline-block">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn-delete">Hapus</button>
+                                        <button type="submit" class="btn-delete px-3 py-1">Hapus</button>
                                     </form>
                                 </div>
                             </td>
@@ -204,15 +213,14 @@
         </div>
         
         <div class="text-right mt-8">
-    <a href="{{ route('cse.export.outlet_pdf') }}" target="_blank">
-        <button class="export-btn">EKSPOR PDF</button>
-    </a>
-</div>
+            <a href="{{ route('cse.export.outlet_pdf') }}" target="_blank">
+                <button class="export-btn">EKSPOR PDF</button>
+            </a>
+        </div>
         
     </div>
 
     <script>
-        // JavaScript untuk konfirmasi hapus
         function confirmDelete(outletName) {
             return confirm(`Apakah Anda yakin ingin menghapus outlet ${outletName}?`);
         }

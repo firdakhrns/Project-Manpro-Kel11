@@ -132,11 +132,10 @@
     </div>
 @endif
 
-        <form action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
+        <form id="outletForm" action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
-
-        <form action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
+            {{-- Hapus duplikasi @csrf yang ada di kode lama --}}
+            {{-- Hapus duplikasi tag <form> yang ada di kode lama --}}
 
             {{-- <input type="hidden" name="tanggal_input" value="<?php echo date('Y-m-d'); ?>"> --}}
 
@@ -172,11 +171,10 @@
                 </div>
 
                 <div>
-                    <!-- AREA UPLOAD FOTO DEPAN - DENGAN ID YANG BENAR -->
                     <div class="input-group mb-6">
                         <label for="tampak_depan_outlet_file">Tampak Depan Outlet</label>
                         <label class="upload-area" for="tampak_depan_outlet_file">
-                            <div class="upload-area-content" id="filename_depan"> <!-- ID DITAMBAHKAN DI SINI -->
+                            <div class="upload-area-content" id="filename_depan">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
@@ -185,12 +183,11 @@
                             <input type="file" id="tampak_depan_outlet_file" name="tampak_depan_outlet_file" accept="image/*" required>
                         </label>
                     </div>
-                    
-                    <!-- AREA UPLOAD FOTO ETALASE - DENGAN ID YANG BENAR -->
+
                     <div class="input-group">
                         <label for="foto_etalase_file">Foto Etalase</label>
                         <label class="upload-area" for="foto_etalase_file">
-                            <div class="upload-area-content" id="filename_etalase"> <!-- ID DITAMBAHKAN DI SINI -->
+                            <div class="upload-area-content" id="filename_etalase">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
@@ -203,16 +200,18 @@
             </div>
 
             <div class="text-center mt-10">
-                <button type="submit" class="submit-button">SUBMIT</button>
+                <button type="button" id="submitButton" class="submit-button">SUBMIT</button>
             </div>
         </form>
 
-        <!-- SCRIPT JAVASCRIPT DITARUH DI SINI - SETELAH FORM TAPI SEBELUM TUTUP BODY -->
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                // Definisikan semua elemen di dalam scope ini
                 const fileInputDepan = document.getElementById('tampak_depan_outlet_file');
                 const fileInputEtalase = document.getElementById('foto_etalase_file');
-
+                const submitButton = document.getElementById('submitButton');
+                const form = document.getElementById('outletForm');
+                
                 function updateFileNameDisplay(inputElement, displayId) {
                     const displayElement = document.getElementById(displayId);
                     
@@ -240,6 +239,31 @@
 
                 updateFileNameDisplay(fileInputDepan, 'filename_depan');
                 updateFileNameDisplay(fileInputEtalase, 'filename_etalase');
+                
+                // Event Listener Submit
+                submitButton.addEventListener('click', function(e) {
+                    
+                    // 1. Validasi Foto Depan
+                    if (fileInputDepan.files.length === 0) {
+                        alert("❗ GAGAL SUBMIT: Harap unggah foto 'Tampak Depan Outlet' terlebih dahulu.");
+                        return; 
+                    }
+
+                    // 2. Validasi Foto Etalase
+                    if (fileInputEtalase.files.length === 0) {
+                        alert("❗ GAGAL SUBMIT: Harap unggah foto 'Foto Etalase' terlebih dahulu.");
+                        return;
+                    }
+
+                    // 3. Validasi HTML5 untuk field required lainnya
+                    if (!form.reportValidity()) {
+                        // reportValidity akan menampilkan pesan error bawaan browser untuk field required non-file
+                        return;
+                    }
+
+                    // Jika semua validasi lolos, lakukan submit
+                    form.submit();
+                });
             });
         </script>
         
