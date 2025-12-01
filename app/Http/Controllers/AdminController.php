@@ -14,11 +14,10 @@ use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
-    // --- LAPORAN VIEW STANDAR ---
-    
     public function viewStok()
     {
         $stokData = StockLog::with(['user', 'outlet', 'items.product'])
@@ -48,66 +47,78 @@ class AdminController extends Controller
         return view('admin.view_outlet', compact('outlets'));
     }
 
-    // --- RIWAYAT PENCATATAN (PIVOT) ---
-
     public function riwayatPencatatan(Request $request)
-    {
-        $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
-        $dseIdFilter = $request->input('dse_id');
-        $tipe = $request->input('tipe', 'stok');
-
-        $request->validate([
-            'tanggal' => 'required|date|before_or_equal:today',
-        ]);
+{
+    // Cek apakah request datang dengan filter (GET request), BUKAN load pertama kali
+    $isFiltered = $request->filled('tanggal'); 
     
-        try {
-            $tanggalCari = Carbon::parse($tanggal);
-        } catch (\Exception $e) {
+    $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
+    $dseIdFilter = $request->input('dse_id');
+    $tipe = $request->input('tipe', 'stok');
+
+    $validationError = null;
+
+    try {
+        $tanggalCari = Carbon::parse($tanggal);
+
+        // Pencegahan Tanggal Masa Depan
+        if ($tanggalCari->greaterThan(Carbon::today())) {
             $tanggalCari = Carbon::today();
+            // Tampilkan error HANYA jika ada input filter yang dikirim user
+            if ($isFiltered) { 
+                $validationError = 'Tanggal tidak boleh melebihi Tanggal Hari Ini.';
+            }
+            $tanggal = Carbon::today()->toDateString();
         }
+    } catch (\Exception $e) {
+        $tanggalCari = Carbon::today();
+        // Tampilkan error HANYA jika ada input filter yang dikirim user
+        if ($isFiltered) {
+            $validationError = 'Format tanggal tidak valid. Menggunakan Tanggal Hari Ini.';
+        }
+        $tanggal = Carbon::today()->toDateString();
+    }
 
-        $dseList = User::where('role', 'DSE')->orderBy('id_dse')->get(['id_dse', 'name', 'region']);
-        $regions = User::where('role', 'DSE')->distinct()->pluck('region');
+    $dseList = User::where('role', 'DSE')->orderBy('id_dse')->get(['id_dse', 'name', 'region']);
+    $regions = User::where('role', 'DSE')->distinct()->pluck('region');
+    
+    $productHeaders = Product::pluck('product_code')->toArray();
+    $allDseKeys = User::where('role', 'DSE')->pluck('id_dse'); 
+    
+    $pivotData = [];
+    
+    foreach ($allDseKeys as $id) {
+        if ($dseIdFilter && $dseIdFilter != $id) continue;
         
-        $productHeaders = Product::pluck('product_code')->toArray();
-        $allDseKeys = User::where('role', 'DSE')->pluck('id_dse'); 
-        
-        $pivotData = [];
-        
-        foreach ($allDseKeys as $id) {
-            if ($dseIdFilter && $dseIdFilter != $id) continue;
-            
-            $pivotData[$id] = [
-                'stok' => array_fill_keys($productHeaders, 0),
-                'retur' => array_fill_keys($productHeaders, 0),
-            ];
-        }
+        $pivotData[$id] = [
+            'stok' => array_fill_keys($productHeaders, 0),
+            'retur' => array_fill_keys($productHeaders, 0),
+        ];
+    }
 
-        // A. Query Stok (stok & all)
-        if ($tipe == 'stok' || $tipe == 'all') {
-            $stokQuery = $this->buildPivotQuery('stock_log_items', 'stock_logs', $tanggalCari, $dseIdFilter);
-            $this->aggregatePivotData($stokQuery->get(), $pivotData, 'stok');
-        }
+    // A. Query Stok (stok & all)
+    if ($tipe == 'stok' || $tipe == 'all') {
+        $stokQuery = $this->buildPivotQuery('stock_log_items', 'stock_logs', $tanggalCari, $dseIdFilter);
+        $this->aggregatePivotData($stokQuery->get(), $pivotData, 'stok');
+    }
 
-        // B. Query Retur (retur & all)
-        if ($tipe == 'retur' || $tipe == 'all') {
-            $returQuery = $this->buildPivotQuery('return_log_items', 'return_logs', $tanggalCari, $dseIdFilter);
-            $this->aggregatePivotData($returQuery->get(), $pivotData, 'retur');
-        }
-        
-        return view('admin.riwayat_pencatatan', [
-            'pivotData' => $pivotData,
-            'productHeaders' => $productHeaders,
-            'tanggalFilter' => $tanggal,
-            'tipe' => $tipe,
-            'dseList' => $dseList,
-            'regions' => $regions,
-            'totalDSE' => User::where('role', 'DSE')->count(), 
-            'totalOutlets' => Outlet::count(),
-        ]);
+    if ($tipe == 'retur' || $tipe == 'all') {
+        $returQuery = $this->buildPivotQuery('return_log_items', 'return_logs', $tanggalCari, $dseIdFilter);
+        $this->aggregatePivotData($returQuery->get(), $pivotData, 'retur');
     }
     
-    // --- HELPER UNTUK PIVOT ---
+    return view('admin.riwayat_pencatatan', [
+        'pivotData' => $pivotData,
+        'productHeaders' => $productHeaders,
+        'tanggalFilter' => $tanggal, // Menggunakan $tanggal yang sudah diperbaiki
+        'tipe' => $tipe,
+        'dseList' => $dseList,
+        'regions' => $regions,
+        'totalDSE' => User::where('role', 'DSE')->count(), 
+        'totalOutlets' => Outlet::count(),
+        'validationError' => $validationError, // <-- Mengirim pesan error ke view
+    ]);
+}
 
     private function buildPivotQuery(string $itemTable, string $logTable, Carbon $date, ?string $dseId)
     {
@@ -143,8 +154,6 @@ class AdminController extends Controller
             }
         }
     }
-
-    // --- CREATE VIEW & STORE STOK/RETUR MANUAL ---
 
     public function createStok()
     {
@@ -269,18 +278,6 @@ class AdminController extends Controller
         }
     }
 
-    // --- CRUD OUTLET ---
-
-    public function createOutlet()
-    {
-        $regions = [
-            'Banjarmasin Utara', 'Banjarmasin Selatan', 'Banjarmasin Barat',
-            'Banjarmasin Tengah', 'Banjarmasin Timur'
-        ];
-        
-        return view('admin.view_outlet', compact('regions'));
-    }
-
     public function storeOutlet(Request $request)
     {
         $request->validate([
@@ -334,38 +331,51 @@ class AdminController extends Controller
 
     public function updateOutlet(Request $request, $id)
     {
-        $request->validate([
-        'name' => [
-            'required',
-            'string',
-            'max:255',
-            'unique:outlets,name,' . $id, 
-            'regex:/^[\pL\pN\s\-\.]+$/u', 
-        ],
-        
-        'address' => 'required|string|max:500', 
-        
-        'owner_name' => [
-            'required',
-            'string',
-            'max:255',
-            'regex:/^[\pL\s]+$/u', 
-        ],
-        
-        'phone' => [
-        'required', 
-        'string', 
-        'max:12', 
-        'regex:/^[0-9]+$/',
-        ], 
-        
-        'status' => 'required|in:Aktif,Non-Aktif',
-        'region' => 'required|string',
-    ]);
+        $rules = [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[\pL\s]+$/u', 
+            ],
+            'phone' => [
+                'required', 
+                'string', 
+                'max:12', 
+                'regex:/^[0-9]+$/', 
+            ], 
+            'status' => 'required|in:Aktif,Non-Aktif',
+            'region' => 'required|string',
+            
+            'front_photo' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120', 
+            'display_photo' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+        ];
 
+        $request->validate($rules);
+        
         try {
             $outlet = Outlet::findOrFail($id);
-            $outlet->update($request->all());
+            $dataToUpdate = $request->except(['_token', '_method', 'front_photo', 'display_photo']);
+
+            if ($request->hasFile('front_photo')) {
+                if ($outlet->front_photo) {
+                    Storage::disk('public')->delete($outlet->front_photo);
+                }
+                $dataToUpdate['front_photo'] = $request->file('front_photo')->store('outlet_photos', 'public');
+            } else {
+                unset($dataToUpdate['front_photo']);
+            }
+
+            if ($request->hasFile('display_photo')) {
+                if ($outlet->display_photo) {
+                    Storage::disk('public')->delete($outlet->display_photo);
+                }
+                $dataToUpdate['display_photo'] = $request->file('display_photo')->store('outlet_photos', 'public');
+            } else {
+                unset($dataToUpdate['display_photo']);
+            }
+
+            $outlet->update($dataToUpdate);
 
             return redirect()->route('admin.view_outlet')->with('success', 'Data outlet berhasil diupdate!');
 
@@ -401,6 +411,7 @@ class AdminController extends Controller
     public function showOutletDetail($id)
     {
         $outlet = Outlet::findOrFail($id); 
+    
         return view('admin.view_outlet_detail', compact('outlet'));
     }
 
@@ -417,6 +428,16 @@ class AdminController extends Controller
 
         $pdf = Pdf::loadView('admin.export.outlet_pdf', compact('outlets', 'title')); 
         return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
+    }
+
+    public function exportOutletDetailPdf($id)
+    {
+        $outlet = Outlet::findOrFail($id); 
+
+        $pdf = Pdf::loadView('admin.export.outlet_detail_pdf', compact('outlet')); 
+
+        $filename = 'Detail_Outlet_' . str_replace(' ', '_', $outlet->name) . '_' . date('Ymd') . '.pdf';
+        return $pdf->download($filename);
     }
 
     public function dashboardStats()

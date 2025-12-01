@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Outlet Aktif Admin</title>
+    <title>Daftar Outlet Aktif</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; }
@@ -166,7 +166,6 @@
                 <tbody>
                     @foreach($outlets as $outlet)
                         <tr>
-                            {{-- KOLOM 1: NAMA OUTLET (LINK EDIT) --}}
                             <td class="pl-4">
                                 <a href="{{ route('cse.outlet.edit', $outlet->id) }}" class="edit-group">
                                     <span class="edit-icon-btn">
@@ -178,23 +177,19 @@
                                 </a>
                             </td>
                             
-                            {{-- KOLOM 2-4: DETAIL OUTLET --}}
                             <td>{{ $outlet->address }}</td>
                             <td>{{ $outlet->owner_name }}</td>
                             <td>{{ $outlet->phone }}</td>
                             
-                            {{-- KOLOM 5: STATUS --}}
                             <td>
                                 <span class="status-badge status-{{ str_replace(' ', '', $outlet->status) }}">
                                     {{ $outlet->status }}
                                 </span>
                             </td>
                             
-                            {{-- KOLOM 6: AKSI (DETAIL + HAPUS) --}}
                             <td>
                                 <div class="action-buttons justify-center">
                                     
-                                    {{-- TOMBOL DETAIL --}}
                                     <a href="{{ route('cse.outlet.detail', $outlet->id) }}" 
                                        class="btn-delete px-3 py-1" 
                                        style="background-color: #10b981; /* Hijau */">
@@ -226,7 +221,6 @@
     </div>
 
     <script>
-        // JavaScript untuk konfirmasi hapus
         function confirmDelete(outletName) {
             return confirm(`Apakah Anda yakin ingin menghapus outlet ${outletName}?`);
         }

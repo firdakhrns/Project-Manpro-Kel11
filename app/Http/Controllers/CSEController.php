@@ -13,10 +13,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; 
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
 
 class CSEController extends Controller
 {
-
 public function viewStok(Request $request)
 {
     $userRegion = Auth::guard('shared')->user()->region;
@@ -24,10 +24,8 @@ public function viewStok(Request $request)
     $endDate = $request->input('end_date');
     $dseId = $request->input('dse_id');
 
-    // Tentukan apakah filter sudah diterapkan (minimal satu parameter ada)
     $isFiltered = $startDate || $endDate || $dseId;
 
-    // **VALIDASI TANGGAL**
     if ($startDate && $endDate) {
         try {
             $startCarbon = Carbon::parse($startDate);
@@ -44,7 +42,6 @@ public function viewStok(Request $request)
             return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
     }
-    // END VALIDASI TANGGAL
 
     $stokData = collect(); 
     $pivotData = [];
@@ -97,8 +94,7 @@ public function viewStok(Request $request)
             }
         }
     }
-    // Jika $isFiltered false (termasuk saat validasi gagal atau tanpa filter), 
-    // $stokData, $pivotData, dan $productHeaders akan tetap kosong.
+
     
     return view('cse.view_stok', compact('stokData', 'pivotData', 'productHeaders', 'dseList', 'isFiltered'));
 }
@@ -113,10 +109,8 @@ public function viewRetur(Request $request)
     $endDate = $request->input('end_date'); 
     $dseId = $request->input('dse_id'); // Pastikan Anda juga menggunakan filter DSE
 
-    // 💥 PERBAIKAN: Tentukan apakah filter sudah diterapkan (minimal satu parameter ada)
     $isFiltered = $startDate || $endDate || $dseId;
     
-    // **VALIDASI TANGGAL**
     if ($startDate && $endDate) {
         try {
             $startCarbon = Carbon::parse($startDate);
@@ -153,7 +147,6 @@ public function viewRetur(Request $request)
                              $query->where('region', $userRegion);
                          });
         
-        // Filter tanggal
         if ($startDate) {
             $query->whereDate('date', '>=', $startDate);
         }
@@ -161,14 +154,12 @@ public function viewRetur(Request $request)
             $query->whereDate('date', '<=', $endDate);
         }
 
-        // Filter DSE ID
         if ($dseId) {
             $query->where('username_id', $dseId);
         }
 
         $returData = $query->orderBy('date', 'desc')->get();
         
-        // 3. Format data untuk pivot table (sama seperti sebelumnya, tetapi di dalam isFiltered)
         $initialProductCounts = array_fill_keys($productHeaders, 0);
 
         foreach ($dseList as $dse) {
@@ -192,7 +183,6 @@ public function viewRetur(Request $request)
         }
     }
     
-    // Jika $isFiltered = false, $pivotData dan $returData akan kosong, tetapi $productHeaders tetap terisi (untuk header tabel).
     return view('cse.view_retur', compact('returData', 'pivotData', 'productHeaders', 'dseList', 'isFiltered'));
 }
 
@@ -245,7 +235,6 @@ public function viewRetur(Request $request)
         $performanceData = collect(); // Default data kosong
 
         if ($isFiltered) {
-            // Lakukan query database hanya jika filter tanggal sudah lengkap
             $performanceData = DB::table('stock_logs as sl')
                 ->select(
                     'sl.username_id as dse_id',
@@ -320,43 +309,51 @@ public function viewRetur(Request $request)
 
     public function updateOutlet(Request $request, $id)
     {
-        $request->validate([
-        'name' => [
-            'required',
-            'string',
-            'max:255',
-            'unique:outlets,name,' . $id, 
-            'regex:/^[\pL\pN\s\-\.]+$/u', 
-        ],
-        
-        'address' => [
-            'required',
-            'string',
-            'max:500',
-            'regex:/^[\pL\pN\s\-\/,\.]+$/u',
-        ], 
-        
-        'owner_name' => [
-            'required',
-            'string',
-            'max:255',
-            'regex:/^[\pL\s]+$/u', 
-        ],
-        
-        'phone' => [
-            'required', 
-            'string', 
-            'max:12', 
-            'regex:/^[0-9]+$/', 
-        ], 
-        
-        'status' => 'required|in:Aktif,Non-Aktif',
-        'region' => 'required|string',
-    ]);
+        $rules = [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                'regex:/^[\pL\s]+$/u', 
+            ],
+            'phone' => [
+                'required', 
+                'string', 
+                'max:12', 
+                'regex:/^[0-9]+$/', 
+            ], 
+            'status' => 'required|in:Aktif,Non-Aktif',
+            'region' => 'required|string',
+            
+            'front_photo' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120', 
+            'display_photo' => 'sometimes|image|mimes:jpeg,png,jpg|max:5120',
+        ];
 
+        $request->validate($rules);
+        
         try {
             $outlet = Outlet::findOrFail($id);
-            $outlet->update($request->all());
+            $dataToUpdate = $request->except(['_token', '_method', 'front_photo', 'display_photo']);
+
+            if ($request->hasFile('front_photo')) {
+                if ($outlet->front_photo) {
+                    Storage::disk('public')->delete($outlet->front_photo);
+                }
+                $dataToUpdate['front_photo'] = $request->file('front_photo')->store('outlet_photos', 'public');
+            } else {
+                unset($dataToUpdate['front_photo']);
+            }
+
+            if ($request->hasFile('display_photo')) {
+                if ($outlet->display_photo) {
+                    Storage::disk('public')->delete($outlet->display_photo);
+                }
+                $dataToUpdate['display_photo'] = $request->file('display_photo')->store('outlet_photos', 'public');
+            } else {
+                unset($dataToUpdate['display_photo']);
+            }
+
+            $outlet->update($dataToUpdate);
 
             return redirect()->route('cse.view_outlet')->with('success', 'Data outlet berhasil diupdate!');
 
@@ -393,7 +390,7 @@ public function viewRetur(Request $request)
     {
         $outlet = Outlet::findOrFail($id); 
     
-        return view('admin.view_outlet_detail', compact('outlet'));
+        return view('cse.view_outlet_detail', compact('outlet'));
     }
 
     /**
@@ -439,7 +436,6 @@ public function viewRetur(Request $request)
             'is_urgent' => false,
         ]);
 
-        // Juga simpan di log sebagai backup
         Log::info('Feedback dari CSE', [
             'cse' => Auth::guard('shared')->user()->username,
             'dse_target' => $request->dse_target,
@@ -457,32 +453,27 @@ public function viewRetur(Request $request)
     $startDate = $request->input('start_date');
     $endDate = $request->input('end_date');
 
-    // **TAMBAHKAN VALIDASI TANGGAL DISINI**
     if ($startDate && $endDate) {
         try {
             $startCarbon = Carbon::parse($startDate);
             $endCarbon = Carbon::parse($endDate);
 
             if ($startCarbon->greaterThan($endCarbon)) {
-                // Baris ini yang mengirim error kembali ke view
                 return redirect()->back()->withErrors([
                     'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
                 ])->withInput();
             }
         } catch (\Exception $e) {
-            // Validasi format tanggal (walaupun input type=date sudah membantu)
             return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
     }
     
-    // Inisialisasi query seperti biasa
     $query = Feedbacks::where('cse_id', '!=', null) 
                  ->whereHas('dseTarget', function($q) use ($userRegion) {
                      $q->where('region', $userRegion);
                  })
                  ->orderBy('created_at', 'desc');
 
-    // Filter tanggal
     if ($startDate) {
         $query->whereDate('created_at', '>=', $startDate);
     }
@@ -502,14 +493,12 @@ public function viewRetur(Request $request)
     {
         $userRegion = Auth::guard('shared')->user()->region;
     
-    // Gunakan query dasar yang sama dengan showHasilKritikSaran
     $query = Feedbacks::where('cse_id', '!=', null) 
                      ->whereHas('dseTarget', function($q) use ($userRegion) {
                          $q->where('region', $userRegion);
                      })
                      ->orderBy('created_at', 'desc');
 
-    // Filter Tanggal
     if ($request->has('start_date') && $request->start_date) {
         $query->whereDate('created_at', '>=', $request->start_date);
     }
@@ -517,11 +506,9 @@ public function viewRetur(Request $request)
         $query->whereDate('created_at', '<=', $request->end_date);
     }
     
-    // (Jika ada filter lain di URL, masukkan di sini)
     
     $kritikSaran = $query->get();
     
-    // Tambahkan validasi jika data kosong sebelum export
     if ($kritikSaran->isEmpty()) {
         return redirect()->back()->with('error', 'Tidak ada data untuk diekspor berdasarkan filter yang dipilih.')->withInput();
     }
@@ -533,19 +520,30 @@ public function viewRetur(Request $request)
     }
 
     // Di CSEController
-public function exportOutletPdf(Request $request)
-{
-    $userRegion = Auth::guard('shared')->user()->region; 
-    
-    $outlets = Outlet::where('status', 'Aktif')
-                     ->where('region', $userRegion) // Filter hanya region Manajer/CSE
-                     ->orderBy('name')
-                     ->get(); 
-    
-    $title = "Daftar Outlet Aktif Regional {$userRegion}";
+    public function exportOutletPdf(Request $request)
+    {
+        $outlets = Outlet::where('status', 'Aktif') 
+                        ->orderBy('region')
+                        ->orderBy('name')
+                        ->get(); 
+        
+        $region = Auth::guard('shared')->user()->region ?? 'Global';
+        $title = "Daftar Outlet Aktif Regional {$region}";
 
-    $pdf = Pdf::loadView('admin.export.outlet_pdf', compact('outlets', 'title')); 
+        $pdf = Pdf::loadView('cse.export.outlet_pdf', compact('outlets', 'title')); 
+        return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
+    }
 
-    return $pdf->download('Daftar_Outlet_Aktif_Regional_' . Carbon::now()->format('Ymd_His') . '.pdf');
-}
+    /**
+ * Export PDF Detail Outlet Spesifik (hanya 1 outlet)
+ */
+    public function exportOutletDetailPdf($id)
+    {
+        $outlet = Outlet::findOrFail($id); 
+
+        $pdf = Pdf::loadView('cse.export.outlet_detail_pdf', compact('outlet')); 
+
+        $filename = 'Detail_Outlet_' . str_replace(' ', '_', $outlet->name) . '_' . date('Ymd') . '.pdf';
+        return $pdf->download($filename);
+    }
 }

@@ -22,6 +22,8 @@ class Outlet extends Model
         'region',
     ];
 
+    protected $dates = [];
+
     protected $casts = [
         'join_date' => 'date',
     ];

@@ -34,7 +34,6 @@
             appearance: none; /* Hilangkan default arrow */
         }
         
-        /* Tabel Pivot Styling */
         .pivot-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .pivot-table th, .pivot-table td { padding: 10px 8px; text-align: center; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
         .pivot-table th { background-color: white; color: #4a5568; font-weight: 700; font-size: 0.8rem; border-color: #e2e8f0; } 
@@ -43,7 +42,6 @@
         .dse-id-col { text-align: left; font-weight: 600; }
         .bg-red-header { background-color: var(--im3-red); color: white; border-color: var(--im3-red); }
         
-        /* Toggle Button */
         .category-buttons-wrapper { background-color: #e5e7eb; border-radius: 25px; display: inline-flex; padding: 4px; }
         .category-button-toggle { padding: 6px 15px; border-radius: 20px; font-weight: 600; cursor: pointer; background-color: transparent; color: #4b5563; border: none; font-size: 0.9rem; transition: background-color 0.2s, color 0.2s; }
         .category-button-toggle.active { background-color: var(--im3-red); color: white; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
@@ -62,7 +60,6 @@
         <h1 class="main-title mb-2">Detail Stok</h1>
         <p class="text-gray-500 text-center -mt-2 mb-6">Laporan Stok Global Harian</p>
         
-        {{-- FORM FILTER UTAMA DAN INFO HEADER (SEMUA SEJAJAR) --}}
         <form method="GET" action="{{ route('admin.riwayat_pencatatan') }}" id="filterFormAdmin" class="filter-header-group">
             
             {{-- 1. Tanggal (Input - FIX) --}}
@@ -77,18 +74,15 @@
                 >
             </div>
             
-            {{-- 2. Waktu (Badge Merah Statis - FIX) --}}
             <div class="info-toggle-item">
                 <span class="header-badge-label">Waktu</span>
                 <span id="time-display" class="header-date-input" style="background-color: white; color: #333;">{{ \Carbon\Carbon::now()->format('H:i') }} WITA</span>
             </div>
             
-            {{-- 3. Filter DSE (DROPDOWN) --}}
             <div class="info-toggle-item" style="border: 1px solid var(--im3-red);">
                 <span class="header-badge-label bg-gray-600" style="background-color: var(--im3-red);">DSE</span>
                  <select name="dse_id" id="dse_id_filter" class="header-dropdown" onchange="this.form.submit()">
                     <option value="">Semua DSE</option>
-                    {{-- $dseList harus dikirim dari AdminController --}}
                     @foreach($dseList ?? [] as $dse)
                         <option value="{{ $dse->id_dse }}" @if(request('dse_id') == $dse->id_dse) selected @endif>
                             {{ $dse->id_dse }} ({{ $dse->name }})
@@ -107,21 +101,25 @@
             </div>
             
         </form>
+
+        @if($validationError)
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 text-center" role="alert">
+            <span class="font-bold">Perhatian:</span> 
+            <span class="block sm:inline">{{ $validationError }}</span>
+        </div>
+        @endif
         
         <hr class="mb-8 border-gray-200">
 
-        {{-- Tabel Pivot --}}
         <div class="table-wrapper overflow-x-auto">
             <table class="pivot-table">
                 <thead>
-                    {{-- Header Row 1: Kategori Utama --}}
                     <tr>
                         <th class="dse-id-col bg-red-header" rowspan="2" style="width: 100px;">DSE ID</th>
                         <th colspan="4" class="bg-red-header">Kartu Perdana</th>
                         <th colspan="8" class="bg-red-header">Voucher</th>
                     </tr>
                     
-                    {{-- Header Row 2: Nama Produk Individual --}}
                     <tr>
                         <th class="text-xs">SP 3 GB</th>
                         <th class="text-xs">SP 6 GB</th>
@@ -180,7 +178,6 @@
     </div>
     
     <script>
-        // JS untuk memperbarui jam real-time di header
         function updateTimeDisplay() {
             const timeElement = document.getElementById('time-display');
             if (timeElement) {
@@ -191,7 +188,6 @@
             }
         }
         
-        // JS untuk menangani submit filter saat tombol Stok/Retur ditekan (FIXED LOGIC)
         document.addEventListener('DOMContentLoaded', () => {
             updateTimeDisplay();
             setInterval(updateTimeDisplay, 1000); 
@@ -200,25 +196,20 @@
             const hiddenTipe = document.getElementById('tipe_hidden');
             const toggleButtons = document.querySelectorAll('.category-button-toggle');
 
-            // 1. Tambahkan event listener ke semua tombol toggle
             toggleButtons.forEach(button => {
                 button.addEventListener('click', function() {
                     const newTipe = this.getAttribute('data-tipe');
                     
-                    // Set nilai hidden field
                     hiddenTipe.value = newTipe;
                     
-                    // Submit form utama
                     form.submit();
                 });
             });
             
-            // 2. Tambahkan event listener ke dropdown DSE (submit otomatis)
             document.getElementById('dse_id_filter').addEventListener('change', function() {
                 form.submit();
             });
             
-            // Catatan: Input Tanggal sudah submit otomatis via onchange di HTML.
         });
     </script>
 </body>
