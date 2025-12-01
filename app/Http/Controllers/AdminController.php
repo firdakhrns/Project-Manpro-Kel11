@@ -10,13 +10,15 @@ use App\Models\User;
 use App\Models\Product;
 use App\Models\StockLogItem;
 use App\Models\ReturnLogItem;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
+    // --- LAPORAN VIEW STANDAR ---
+    
     public function viewStok()
     {
         $stokData = StockLog::with(['user', 'outlet', 'items.product'])
@@ -46,6 +48,8 @@ class AdminController extends Controller
         return view('admin.view_outlet', compact('outlets'));
     }
 
+    // --- RIWAYAT PENCATATAN (PIVOT) ---
+
     public function riwayatPencatatan(Request $request)
     {
         $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
@@ -53,20 +57,18 @@ class AdminController extends Controller
         $tipe = $request->input('tipe', 'stok');
 
         $request->validate([
-        'tanggal' => 'required|date|before_or_equal:today',
+            'tanggal' => 'required|date|before_or_equal:today',
         ]);
     
-    try {
-        $tanggalCari = Carbon::parse($tanggal);
+        try {
+            $tanggalCari = Carbon::parse($tanggal);
         } catch (\Exception $e) {
             $tanggalCari = Carbon::today();
         }
 
-        // 2. Ambil List Master Data untuk Filter Dropdown
         $dseList = User::where('role', 'DSE')->orderBy('id_dse')->get(['id_dse', 'name', 'region']);
         $regions = User::where('role', 'DSE')->distinct()->pluck('region');
         
-        // 3. Ambil semua produk unik sebagai Header Kolom (Product Codes)
         $productHeaders = Product::pluck('product_code')->toArray();
         $allDseKeys = User::where('role', 'DSE')->pluck('id_dse'); 
         
@@ -81,8 +83,6 @@ class AdminController extends Controller
             ];
         }
 
-        // --- 5. Logika Query dan Agregasi ---
-
         // A. Query Stok (stok & all)
         if ($tipe == 'stok' || $tipe == 'all') {
             $stokQuery = $this->buildPivotQuery('stock_log_items', 'stock_logs', $tanggalCari, $dseIdFilter);
@@ -95,7 +95,6 @@ class AdminController extends Controller
             $this->aggregatePivotData($returQuery->get(), $pivotData, 'retur');
         }
         
-        // 6. Kirim data ke View
         return view('admin.riwayat_pencatatan', [
             'pivotData' => $pivotData,
             'productHeaders' => $productHeaders,
@@ -108,9 +107,8 @@ class AdminController extends Controller
         ]);
     }
     
-    /**
-     * Helper: Membuat query pivot yang efisien untuk Stok/Retur
-     */
+    // --- HELPER UNTUK PIVOT ---
+
     private function buildPivotQuery(string $itemTable, string $logTable, Carbon $date, ?string $dseId)
     {
         $logIdColumn = $logTable == 'stock_logs' ? 'stock_log_id' : 'return_log_id';
@@ -134,13 +132,9 @@ class AdminController extends Controller
         return $query;
     }
 
-    /**
-     * Helper: Mengisi data ke struktur pivot.
-     */
     private function aggregatePivotData($logData, &$pivotData, string $logType) 
     {
         foreach ($logData as $log) {
-            // Gunakan dse_id dari log (yang dikembalikan oleh SELECT)
             $dseId = $log->username_id; 
             $productCode = $log->product_code;
 
@@ -150,30 +144,31 @@ class AdminController extends Controller
         }
     }
 
-    public function createStok()
-{
-    $dseUsers = User::where('role', 'DSE')->get();  // Huruf besar 'DSE'
-    $outlets = Outlet::all();
-    return view('admin.view_stok', compact('dseUsers', 'outlets')); // Langsung ke view_stok.blade.php
-}
+    // --- CREATE VIEW & STORE STOK/RETUR MANUAL ---
 
-public function createRetur()
-{
-    $dseUsers = User::where('role', 'DSE')->get();  // Huruf besar 'DSE'
-    $outlets = Outlet::all();
-    return view('admin.view_retur', compact('dseUsers', 'outlets')); // Langsung ke view_retur.blade.php
-}
+    public function createStok()
+    {
+        $dseUsers = User::where('role', 'DSE')->get();
+        $outlets = Outlet::all();
+        return view('admin.view_stok', compact('dseUsers', 'outlets')); 
+    }
+
+    public function createRetur()
+    {
+        $dseUsers = User::where('role', 'DSE')->get();
+        $outlets = Outlet::all();
+        return view('admin.view_retur', compact('dseUsers', 'outlets'));
+    }
 
     public function storeStok(Request $request)
     {
         $request->validate([
-        'username_id' => 'required|exists:users,id_dse',
-        'outlet_id' => 'required|exists:outlets,id',
-        'date' => 'required|date',
-        'stok.kp.*' => 'nullable|integer|min:0|max:500', 
-        'stok.v.*' => 'nullable|integer|min:0|max:500', 
-        // ---------------------------------
-    ]);
+            'username_id' => 'required|exists:users,id_dse',
+            'outlet_id' => 'required|exists:outlets,id',
+            'date' => 'required|date',
+            'stok.kp.*' => 'nullable|integer|min:0|max:500', 
+            'stok.v.*' => 'nullable|integer|min:0|max:500', 
+        ]);
 
         DB::beginTransaction();
         try {
@@ -185,18 +180,9 @@ public function createRetur()
             ]);
 
             $productMapping = [
-                '3gb' => 'KP_3GB',
-                '6gb' => 'KP_6GB', 
-                '9gb' => 'KP_9GB',
-                '20gb' => 'KP_20GB',
-                '1gb_2h' => 'FI15_1D',
-                '15gb_7h' => 'FI15_7D',
-                '3gb_3h' => 'FI3_3D',
-                '3gb_28h' => 'FI3_28D',
-                '5gb_5h' => 'FI5_5D',
-                '5gb_2h' => 'FI5_2D',
-                '7gb_7h' => 'FI7_7D',
-                '5gb_3h' => 'FI5_3D',
+                '3gb' => 'KP_3GB', '6gb' => 'KP_6GB', '9gb' => 'KP_9GB', '20gb' => 'KP_20GB',
+                '1gb_2h' => 'FI15_1D', '15gb_7h' => 'FI15_7D', '3gb_3h' => 'FI3_3D', '3gb_28h' => 'FI3_28D',
+                '5gb_5h' => 'FI5_5D', '5gb_2h' => 'FI5_2D', '7gb_7h' => 'FI7_7D', '5gb_3h' => 'FI5_3D',
             ];
 
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
@@ -231,17 +217,17 @@ public function createRetur()
     public function storeRetur(Request $request)
     {
         $request->validate([
-        'username_id' => 'required|exists:users,id_dse',
-        'outlet_id' => 'required|exists:outlets,id',
-        'date' => 'required|date',
-        'retur.kp.*' => 'nullable|integer|min:0|max:500', 
-        'retur.v.*' => 'nullable|integer|min:0|max:500', 
-    ]);
+            'username_id' => 'required|exists:users,id_dse',
+            'outlet_id' => 'required|exists:outlets,id',
+            'date' => 'required|date',
+            'retur.kp.*' => 'nullable|integer|min:0|max:500', 
+            'retur.v.*' => 'nullable|integer|min:0|max:500', 
+        ]);
 
         DB::beginTransaction();
         try {
             $returnLog = ReturnLog::create([
-                'username_id' => $request->username_id, // PERBAIKAN: username_id
+                'username_id' => $request->username_id,
                 'outlet_id' => $request->outlet_id,
                 'date' => $request->date,
                 'notes' => $request->notes ?? 'Retur oleh Admin',
@@ -249,18 +235,9 @@ public function createRetur()
             ]);
 
             $productMapping = [
-                '3gb' => 'KP_3GB',
-                '6gb' => 'KP_6GB',
-                '9gb' => 'KP_9GB', 
-                '20gb' => 'KP_20GB',
-                '1gb_2h' => 'FI15_1D',
-                '15gb_7h' => 'FI15_7D',
-                '3gb_3h' => 'FI3_3D',
-                '3gb_28h' => 'FI3_28D',
-                '5gb_5h' => 'FI5_5D',
-                '5gb_2h' => 'FI5_2D',
-                '7gb_7h' => 'FI7_7D',
-                '5gb_3h' => 'FI5_3D',
+                '3gb' => 'KP_3GB', '6gb' => 'KP_6GB', '9gb' => 'KP_9GB', '20gb' => 'KP_20GB',
+                '1gb_2h' => 'FI15_1D', '15gb_7h' => 'FI15_7D', '3gb_3h' => 'FI3_3D', '3gb_28h' => 'FI3_28D',
+                '5gb_5h' => 'FI5_5D', '5gb_2h' => 'FI5_2D', '7gb_7h' => 'FI7_7D', '5gb_3h' => 'FI5_3D',
             ];
 
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
@@ -292,44 +269,39 @@ public function createRetur()
         }
     }
 
+    // --- CRUD OUTLET ---
+
     public function createOutlet()
     {
         $regions = [
-            'Banjarmasin Utara',
-            'Banjarmasin Selatan', 
-            'Banjarmasin Barat',
-            'Banjarmasin Tengah',
-            'Banjarmasin Timur'
+            'Banjarmasin Utara', 'Banjarmasin Selatan', 'Banjarmasin Barat',
+            'Banjarmasin Tengah', 'Banjarmasin Timur'
         ];
         
-        return view('admin.create_outlet', compact('regions'));
+        return view('admin.view_outlet', compact('regions'));
     }
 
     public function storeOutlet(Request $request)
     {
         $request->validate([
         'name' => [
-            'required',
-            'string',
-            'max:255',
-            'unique:outlets,name,',
+            'required', 'string', 'max:255', 
+            'unique:outlets,name', 
             'regex:/^[\pL\pN\s\-\.]+$/u', 
         ],
-        
-
-        'address' => 'required|string|max:500', 
-        
-        'owner_name' => [
-            'required',
-            'string',
-            'max:255',
-            'regex:/^[\pL\s]+$/u', 
-        ],
-        
-        'phone' => 'required|string|max:12|numeric', 
-        
-        'region' => 'required|string',
-    ]);
+            'address' => 'required|string|max:500', 
+            'owner_name' => [
+                'required', 'string', 'max:255',
+                'regex:/^[\pL\s]+$/u', 
+            ],
+            'phone' => [
+            'required', 
+            'string', 
+            'max:12', 
+            'regex:/^[0-9]+$/', 
+        ], 
+            'region' => 'required|string',
+        ]);
 
         try {
             Outlet::create([
@@ -353,11 +325,8 @@ public function createRetur()
     {
         $outlet = Outlet::findOrFail($id);
         $regions = [
-            'Banjarmasin Utara',
-            'Banjarmasin Selatan',
-            'Banjarmasin Barat',
-            'Banjarmasin Tengah',
-            'Banjarmasin Timur'
+            'Banjarmasin Utara', 'Banjarmasin Selatan', 'Banjarmasin Barat',
+            'Banjarmasin Tengah', 'Banjarmasin Timur'
         ];
         
         return view('admin.edit_outlet', compact('outlet', 'regions'));
@@ -370,7 +339,7 @@ public function createRetur()
             'required',
             'string',
             'max:255',
-            'unique:outlets,name,' . $id,
+            'unique:outlets,name,' . $id, 
             'regex:/^[\pL\pN\s\-\.]+$/u', 
         ],
         
@@ -383,7 +352,12 @@ public function createRetur()
             'regex:/^[\pL\s]+$/u', 
         ],
         
-        'phone' => 'required|string|max:12|numeric', 
+        'phone' => [
+        'required', 
+        'string', 
+        'max:12', 
+        'regex:/^[0-9]+$/',
+        ], 
         
         'status' => 'required|in:Aktif,Non-Aktif',
         'region' => 'required|string',
@@ -424,14 +398,24 @@ public function createRetur()
         }
     }
 
+    public function showOutletDetail($id)
+    {
+        $outlet = Outlet::findOrFail($id); 
+        return view('admin.view_outlet_detail', compact('outlet'));
+    }
+
+
     public function exportOutletPdf(Request $request)
     {
-        $outlets = Outlet::orderBy('name')->get(); 
+        $outlets = Outlet::where('status', 'Aktif') 
+                        ->orderBy('region')
+                        ->orderBy('name')
+                        ->get(); 
+        
         $region = Auth::guard('shared')->user()->region ?? 'Global';
         $title = "Daftar Outlet Aktif Regional {$region}";
 
         $pdf = Pdf::loadView('admin.export.outlet_pdf', compact('outlets', 'title')); 
-
         return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
     }
 

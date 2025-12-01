@@ -160,17 +160,16 @@
                         <th>Nama Pemilik</th>
                         <th>No. HP Pemilik</th>
                         <th>Status Outlet</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($outlets as $outlet)
                         <tr>
+                            {{-- KOLOM 1: NAMA OUTLET (LINK EDIT) --}}
                             <td class="pl-4">
-                                {{-- Kolom Edit dan Nama Outlet digabung --}}
                                 <a href="{{ route('admin.outlet.edit', $outlet->id) }}" class="edit-group">
                                     <span class="edit-icon-btn">
-                                        {{-- Ikon Edit/Pensil --}}
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21H3v-3.5L14.732 3.732z" />
                                         </svg>
@@ -178,22 +177,37 @@
                                     <span>{{ $outlet->name }}</span>
                                 </a>
                             </td>
+                            
+                            {{-- KOLOM 2-4: DETAIL OUTLET --}}
                             <td>{{ $outlet->address }}</td>
                             <td>{{ $outlet->owner_name }}</td>
                             <td>{{ $outlet->phone }}</td>
+                            
+                            {{-- KOLOM 5: STATUS --}}
                             <td>
                                 <span class="status-badge status-{{ str_replace(' ', '', $outlet->status) }}">
                                     {{ $outlet->status }}
                                 </span>
                             </td>
+                            
+                            {{-- KOLOM 6: AKSI (DETAIL + HAPUS) --}}
                             <td>
-                                <div class="action-buttons">
-                                    {{-- Tombol Hapus dengan Konfirmasi --}}
+                                <div class="action-buttons justify-center">
+                                    
+                                    {{-- TOMBOL DETAIL --}}
+                                    <a href="{{ route('admin.outlet.detail', $outlet->id) }}" 
+                                       class="btn-delete px-3 py-1" 
+                                       style="background-color: #10b981; /* Hijau */">
+                                        Detail
+                                    </a> 
+                                    
+                                    {{-- Tombol Hapus --}}
                                     <form method="POST" action="{{ route('admin.outlet.delete', $outlet->id) }}" 
-                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus outlet {{ $outlet->name }}?')">
+                                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus outlet {{ $outlet->name }}?')"
+                                          class="inline-block">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn-delete">Hapus</button>
+                                        <button type="submit" class="btn-delete px-3 py-1">Hapus</button>
                                     </form>
                                 </div>
                             </td>
@@ -204,10 +218,10 @@
         </div>
         
         <div class="text-right mt-8">
-    <a href="{{ route('admin.export.outlet_pdf') }}" target="_blank">
-        <button class="export-btn">EKSPOR PDF</button>
-    </a>
-</div>
+            <a href="{{ route('admin.export.outlet_pdf') }}" target="_blank">
+                <button class="export-btn">EKSPOR PDF</button>
+            </a>
+        </div>
         
     </div>
 

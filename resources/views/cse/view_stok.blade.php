@@ -151,14 +151,14 @@
                         </tr>
                         @php $grandTotal += $rowTotal; @endphp
                     @empty
-                    <tr>
-                        <td colspan="{{ count($productHeaders ?? []) + 2 }}" class="text-center py-6 text-gray-500">
+                        <tr>
+                            <td colspan="{{ count($productHeaders ?? []) + 2 }}" class="text-center py-6 text-gray-500">
                         @if (!($isFiltered ?? false))
                             Silakan terapkan filter Tanggal atau DSE ID untuk menampilkan data stok.
                         @else
                             Tidak ada data stok yang tercatat sesuai filter yang Anda terapkan.
                         @endif
-                        </td>
+                    </td>
                     </tr>
                     @endforelse
                 </tbody>

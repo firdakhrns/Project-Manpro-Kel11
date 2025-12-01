@@ -72,7 +72,7 @@
                     type="date" 
                     name="tanggal" 
                     class="header-date-input" 
-                    value="{{ request('tanggal', Carbon\Carbon::today()->toDateString()) }}"
+                    value="{{ request('tanggal', \Carbon\Carbon::today()->toDateString()) }}"
                     onchange="this.form.submit()"
                 >
             </div>
@@ -80,7 +80,7 @@
             {{-- 2. Waktu (Badge Merah Statis - FIX) --}}
             <div class="info-toggle-item">
                 <span class="header-badge-label">Waktu</span>
-                <span id="time-display" class="header-date-input" style="background-color: white; color: #333;">{{ Carbon\Carbon::now()->format('H:i') }} WITA</span>
+                <span id="time-display" class="header-date-input" style="background-color: white; color: #333;">{{ \Carbon\Carbon::now()->format('H:i') }} WITA</span>
             </div>
             
             {{-- 3. Filter DSE (DROPDOWN) --}}

@@ -74,6 +74,7 @@ Route::middleware(['auth:shared'])->group(function () {
     Route::get('/export-stok', [AdminController::class, 'exportStok'])->name('admin.export.stok');
     Route::get('/export-retur', [AdminController::class, 'exportRetur'])->name('admin.export.retur');
     Route::get('/outlet-pdf', [AdminController::class, 'exportOutletPdf'])->name('admin.export.outlet_pdf');
+    Route::get('/outlet/{id}/detail', [AdminController::class, 'showOutletDetail'])->name('admin.outlet.detail');
 });
     
     // Route khusus CSE
@@ -96,8 +97,7 @@ Route::middleware(['auth:shared'])->group(function () {
     
     // EXPORT OUTLET
     Route::get('/export-outlet', [CSEController::class, 'exportOutletPdf'])->name('cse.export.outlet_pdf');
-    
-    // OUTLET CRUD
+    Route::get('/outlet/{id}/detail', [CSEController::class, 'showOutletDetail'])->name('cse.outlet.detail');   
     Route::get('/outlet/{id}/edit', [CSEController::class, 'editOutlet'])->name('cse.outlet.edit');
     Route::put('/outlet/{id}/update', [CSEController::class, 'updateOutlet'])->name('cse.outlet.update');
     Route::delete('/outlet/{id}/delete', [CSEController::class, 'deleteOutlet'])->name('cse.outlet.delete');

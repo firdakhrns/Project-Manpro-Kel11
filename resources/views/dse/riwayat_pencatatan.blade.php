@@ -139,6 +139,11 @@
                 <div class="info-badge info-badge-red">DSE ID</div>
                 <div class="info-badge-text font-semibold text-sm">{{ $dseId ?? 'N/A' }}</div>
             </div>
+
+            <div class="flex items-center">
+                <div class="info-badge info-badge-red">Outlet</div>
+                <div class="info-badge-text font-semibold text-sm">{{ $outletName ?? 'N/A' }}</div>
+            </div>
             
             <div class="flex items-center">
                 <div class="info-badge info-badge-red">Tanggal Tampil</div>

@@ -3,19 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Outlet - Admin</title>
+    <title>Edit Outlet - Manajer/CSE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; }
-        
+        :root { 
+            --im3-yellow: #FFDA00; --im3-red: #E21B21; 
+        }
         body { 
             background-color: var(--im3-yellow); 
             font-family: 'Inter', sans-serif; 
-            position: relative;
+            position: relative; 
         }
-        body::before { content: ''; position: fixed; top: 0; right: 0; width: 300px; height: 300px; background-color: var(--im3-red); border-radius: 50%; transform: translate(50%, -50%); z-index: 0; }
-        body::after { content: ''; position: fixed; bottom: 0; left: 0; width: 400px; height: 400px; background-color: var(--im3-red); border-radius: 50%; transform: translate(-50%, 50%); z-index: 0; }
-
+        body::before { 
+            content: ''; 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            width: 300px; 
+            height: 300px; 
+            background-color: var(--im3-red); 
+            border-radius: 50%; 
+            transform: translate(50%, -50%); 
+            z-index: 0; 
+        }
+        body::after { 
+            content: ''; 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 400px; 
+            height: 400px; 
+            background-color: var(--im3-red); 
+            border-radius: 50%; 
+            transform: translate(-50%, 50%); 
+            z-index: 0; 
+        }
         .container-card { 
             max-width: 600px; 
             margin: 50px auto; 
@@ -24,58 +46,58 @@
             border-radius: 16px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
             position: relative; 
-            z-index: 10;
+            z-index: 10; 
         }
-        
         .back-button-circle { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            z-index: 11; 
+        }
+        h1 { 
+            font-size: 2rem; 
+            font-weight: 800; 
+            color: #333; 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .form-input { 
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 1px solid #d1d5db; 
+            border-radius: 6px; 
+            font-size: 0.95rem; 
+        }
+        .form-input:focus { 
+            outline: none; 
+            border-color: var(--im3-red); 
+            box-shadow: 0 0 0 3px rgba(226, 27, 33, 0.1); 
+        }
+        .btn-primary { 
             background-color: var(--im3-red); 
-            color: white; padding: 8px; border-radius: 50%; display: inline-flex; 
-            align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
-            position: absolute; top: 20px; left: 20px; z-index: 11;
+            color: white; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            border: none; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
         }
-        .back-button-circle:hover { background-color: #b71c1c; }
-
-        h1 { font-size: 2rem; font-weight: 800; color: #333; text-align: center; margin-bottom: 30px; }
-        
-        .form-input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 0.95rem;
+        .btn-primary:hover { 
+            background-color: #c7171d; 
         }
-        .form-input:focus {
-            outline: none;
-            border-color: var(--im3-red);
-            box-shadow: 0 0 0 3px rgba(226, 27, 33, 0.1);
+        .btn-secondary { 
+            background-color: #6b7280; 
+            color: white; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            border: none; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
         }
-        
-        .btn-primary {
-            background-color: var(--im3-red);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .btn-primary:hover {
-            background-color: #c7171d;
-        }
-        
-        .btn-secondary {
-            background-color: #6b7280;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .btn-secondary:hover {
-            background-color: #4b5563;
+        .btn-secondary:hover { 
+            background-color: #4b5563; 
         }
     </style>
 </head>
@@ -93,24 +115,36 @@
         </div>
 
         @if(session('success'))
-<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Sukses!</strong>
-    <span class="block sm:inline">{{ session('success') }}</span>
-</div>
-@endif
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong class="font-bold">Sukses!</strong>
+            <span class="block sm:inline">{{ session('success') }}</span>
+        </div>
+        @endif
 
-@if(session('error'))
-<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Error!</strong>
-    <span class="block sm:inline">{{ session('error') }}</span>
-</div>
-@endif
+        @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span class="block sm:inline">{{ session('error') }}</span>
+        </div>
+        @endif
 
         <form method="POST" action="{{ route('admin.outlet.update', $outlet->id) }}">
             @csrf
             @method('PUT')
+
+            @if ($errors->any())
+                <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                    <strong class="font-bold">Gagal Validasi Input:</strong>
+                    <ul class="list-disc list-inside space-y-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             
             <div class="space-y-4">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Outlet</label>
                     <input type="text" name="name" value="{{ old('name', $outlet->name) }}" class="form-input" required>
@@ -157,7 +191,6 @@
                 <a href="{{ route('admin.view_outlet') }}" class="btn-secondary flex-1 text-center">Batal</a>
             </div>
         </form>
-        
     </div>
 </body>
 </html>
