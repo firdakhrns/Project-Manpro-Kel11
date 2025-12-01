@@ -20,22 +20,21 @@ class DSEInputController extends Controller
 {
     // Mapping Form Input Key ke Product Code
     private $productMapping = [
-        // Kartu Perdana
-        '3_gb' => 'KP_3GB',
-        '6_gb' => 'KP_6GB', 
-        '9_gb' => 'KP_9GB',
-        '20_gb' => 'KP_20GB',
-        
-        // Voucher  
-        '1_gb_2_h' => 'FI15_1D',
-        '15_gb_7_h' => 'FI15_7D',
-        '3_gb_3_h' => 'FI3_3D',
-        '3_gb_28_h' => 'FI3_3D',
-        '5_gb_5_h' => 'FI5_5D',
-        '5_gb_2_h' => 'FI5_2D',
-        '7_gb_7_h' => 'FI7_7D',
-        '5_gb_3_h' => 'FI5_3D',
-    ];
+            '3gb' => 'KP_3GB',
+            '6gb' => 'KP_6GB', 
+            '9gb' => 'KP_9GB',
+            '20gb' => 'KP_20GB',
+
+            '15gb_1h' => 'FI15_1D', 
+            '35gb_5h' => 'FI35_5D', 
+            '5gb_3h' => 'FI5_3D',     
+            '5gb_2h' => 'FI5_2D',    
+            '5gb_5h' => 'FI5_5D', 
+            '7gb_7h' => 'FI7_7D', 
+            '3gb_3h' => 'FI3_3D', 
+            '3gb_1h' => 'FI3_1D', 
+            '15gb_7h' => 'FI15_7D',
+        ];
     
     private function getProductsMap()
     {

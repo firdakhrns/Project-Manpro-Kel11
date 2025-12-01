@@ -126,21 +126,34 @@
                         <th class="text-xs">SP 9 GB</th>
                         <th class="text-xs">SP 20 GB</th>
                         
-                        <th class="text-xs">1 GB/2hr</th>
-                        <th class="text-xs">3 GB/3hr</th>
+                        <th class="text-xs">1.5 GB/1hr</th>
+                        <th class="text-xs">3.5 GB/5hr</th>
+                        <th class="text-xs">5 GB/3hr</th>
+                        <th class="text-xs">5 GB/2hr</th>
                         <th class="text-xs">5 GB/5hr</th>
                         <th class="text-xs">7 GB/7hr</th>
+                        <th class="text-xs">3 GB/3hr</th>
+                        <th class="text-xs">3 GB/1hr</th>
                         <th class="text-xs">15 GB/7hr</th>
-                        <th class="text-xs">3 GB/28hr</th>
-                        <th class="text-xs">5 GB/2hr</th>
-                        <th class="text-xs">5 GB/3hr</th>
                     </tr>
                 </thead>
                 <tbody>
                     @php
                         $productCodes = [
-                            'KP_3GB', 'KP_6GB', 'KP_9GB', 'KP_20GB',
-                            'FI15_1D', 'FI15_7D', 'FI3_3D', 'FI3_28D', 'FI5_5D', 'FI5_2D', 'FI7_7D', 'FI5_3D',
+                            '3_gb' => 'KP_3GB',
+                            '6_gb' => 'KP_6GB', 
+                            '9_gb' => 'KP_9GB',
+                            '20_gb' => 'KP_20GB',
+        
+                            '15_gb_1_h' => 'FI15_1D',
+                            '35_gb_5_h' => 'FI35_5D',
+                            '5_gb_3_h' => 'FI5_3D',
+                            '5_gb_2_h' => 'FI5_2D',
+                            '5_gb_5_h' => 'FI5_5D',
+                            '7_gb_7_h' => 'FI7_7D',
+                            '3_gb_3_h' => 'FI3_3D',
+                            '3_gb_1_h' => 'FI3_1D',
+                            '15_gb_7_h' => 'FI15_7D',
                         ];
                         $tipe = $tipe ?? 'stok';
                     @endphp

@@ -49,7 +49,6 @@ class AdminController extends Controller
 
     public function riwayatPencatatan(Request $request)
 {
-    // Cek apakah request datang dengan filter (GET request), BUKAN load pertama kali
     $isFiltered = $request->filled('tanggal'); 
     
     $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
@@ -61,10 +60,8 @@ class AdminController extends Controller
     try {
         $tanggalCari = Carbon::parse($tanggal);
 
-        // Pencegahan Tanggal Masa Depan
         if ($tanggalCari->greaterThan(Carbon::today())) {
             $tanggalCari = Carbon::today();
-            // Tampilkan error HANYA jika ada input filter yang dikirim user
             if ($isFiltered) { 
                 $validationError = 'Tanggal tidak boleh melebihi Tanggal Hari Ini.';
             }
@@ -72,7 +69,6 @@ class AdminController extends Controller
         }
     } catch (\Exception $e) {
         $tanggalCari = Carbon::today();
-        // Tampilkan error HANYA jika ada input filter yang dikirim user
         if ($isFiltered) {
             $validationError = 'Format tanggal tidak valid. Menggunakan Tanggal Hari Ini.';
         }
@@ -174,7 +170,6 @@ class AdminController extends Controller
         $request->validate([
             'username_id' => 'required|exists:users,id_dse',
             'outlet_id' => 'required|exists:outlets,id',
-            'date' => 'required|date',
             'stok.kp.*' => 'nullable|integer|min:0|max:500', 
             'stok.v.*' => 'nullable|integer|min:0|max:500', 
         ]);
@@ -184,15 +179,26 @@ class AdminController extends Controller
             $stockLog = StockLog::create([
                 'username_id' => $request->username_id,
                 'outlet_id' => $request->outlet_id,
-                'date' => $request->date,
+                'date' => Carbon::now()->toDateString(),
                 'notes' => $request->notes ?? 'Stok oleh Admin',
             ]);
 
-            $productMapping = [
-                '3gb' => 'KP_3GB', '6gb' => 'KP_6GB', '9gb' => 'KP_9GB', '20gb' => 'KP_20GB',
-                '1gb_2h' => 'FI15_1D', '15gb_7h' => 'FI15_7D', '3gb_3h' => 'FI3_3D', '3gb_28h' => 'FI3_28D',
-                '5gb_5h' => 'FI5_5D', '5gb_2h' => 'FI5_2D', '7gb_7h' => 'FI7_7D', '5gb_3h' => 'FI5_3D',
-            ];
+        $productMapping = [
+            '3gb' => 'KP_3GB',
+            '6gb' => 'KP_6GB', 
+            '9gb' => 'KP_9GB',
+            '20gb' => 'KP_20GB',
+
+            '15gb_1h' => 'FI15_1D', 
+            '35gb_5h' => 'FI35_5D', 
+            '5gb_3h' => 'FI5_3D',     
+            '5gb_2h' => 'FI5_2D',    
+            '5gb_5h' => 'FI5_5D', 
+            '7gb_7h' => 'FI7_7D', 
+            '3gb_3h' => 'FI3_3D', 
+            '3gb_1h' => 'FI3_1D', 
+            '15gb_7h' => 'FI15_7D',
+        ];
 
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
                                 ->pluck('id', 'product_code');
@@ -215,7 +221,7 @@ class AdminController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('admin.view_stok')->with('success', 'Data stok berhasil ditambahkan!');
+            return redirect()->route('admin.riwayat_pencatatan')->with('success', 'Data stok berhasil ditambahkan!');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -228,7 +234,6 @@ class AdminController extends Controller
         $request->validate([
             'username_id' => 'required|exists:users,id_dse',
             'outlet_id' => 'required|exists:outlets,id',
-            'date' => 'required|date',
             'retur.kp.*' => 'nullable|integer|min:0|max:500', 
             'retur.v.*' => 'nullable|integer|min:0|max:500', 
         ]);
@@ -238,16 +243,27 @@ class AdminController extends Controller
             $returnLog = ReturnLog::create([
                 'username_id' => $request->username_id,
                 'outlet_id' => $request->outlet_id,
-                'date' => $request->date,
+                'date' => Carbon::now()->toDateString(),
                 'notes' => $request->notes ?? 'Retur oleh Admin',
                 'status' => 'pending',
             ]);
 
             $productMapping = [
-                '3gb' => 'KP_3GB', '6gb' => 'KP_6GB', '9gb' => 'KP_9GB', '20gb' => 'KP_20GB',
-                '1gb_2h' => 'FI15_1D', '15gb_7h' => 'FI15_7D', '3gb_3h' => 'FI3_3D', '3gb_28h' => 'FI3_28D',
-                '5gb_5h' => 'FI5_5D', '5gb_2h' => 'FI5_2D', '7gb_7h' => 'FI7_7D', '5gb_3h' => 'FI5_3D',
-            ];
+            '3gb' => 'KP_3GB',
+            '6gb' => 'KP_6GB', 
+            '9gb' => 'KP_9GB',
+            '20gb' => 'KP_20GB',
+
+            '15gb_1h' => 'FI15_1D', 
+            '35gb_5h' => 'FI35_5D', 
+            '5gb_3h' => 'FI5_3D',     
+            '5gb_2h' => 'FI5_2D',    
+            '5gb_5h' => 'FI5_5D', 
+            '7gb_7h' => 'FI7_7D', 
+            '3gb_3h' => 'FI3_3D', 
+            '3gb_1h' => 'FI3_1D', 
+            '15gb_7h' => 'FI15_7D',
+        ];
 
             $productsMap = Product::whereIn('product_code', array_values($productMapping))
                                 ->pluck('id', 'product_code');
@@ -270,7 +286,7 @@ class AdminController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('admin.view_retur')->with('success', 'Data retur berhasil ditambahkan!');
+            return redirect()->route('admin.riwayat_pencatatan')->with('success', 'Data retur berhasil ditambahkan!');
 
         } catch (\Exception $e) {
             DB::rollBack();

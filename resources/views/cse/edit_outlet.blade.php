@@ -246,13 +246,13 @@
                 {{-- INPUT UPLOAD FOTO BARU --}}
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Ganti Tampak Depan (Max 2MB)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ganti Tampak Depan (Max 5MB)</label>
                         <input type="file" name="front_photo" class="form-input p-1" accept="image/*">
                         @error('front_photo') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Ganti Foto Etalase (Max 2MB)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ganti Foto Etalase (Max 5MB)</label>
                         <input type="file" name="display_photo" class="form-input p-1" accept="image/*">
                         @error('display_photo') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
