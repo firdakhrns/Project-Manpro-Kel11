@@ -202,96 +202,98 @@ public function viewRetur(Request $request)
      * View performa DSE di region CSE
      */
     public function viewPerforma(Request $request)
-    {
-        $userRegion = Auth::guard('shared')->user()->region;
-        
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
-        
-        // Cek apakah filter tanggal sudah lengkap
-        $isFiltered = $startDate && $endDate;
+{
+    $userRegion = Auth::guard('shared')->user()->region;
+    
+    $startDate = $request->input('start_date');
+    $endDate = $request->input('end_date');
+    
+    $isFiltered = $startDate && $endDate;
 
-        // Tentukan nilai query date, default 30 hari terakhir jika filter belum lengkap
-        $queryStartDate = $startDate ? $startDate : Carbon::today()->subDays(30)->toDateString();
-        $queryEndDate = $endDate ? $endDate : Carbon::today()->toDateString();
+    $queryStartDate = $startDate ? $startDate : Carbon::today()->subDays(30)->toDateString();
+    $queryEndDate = $endDate ? $endDate : Carbon::today()->toDateString();
 
-        if ($startDate && $endDate) {
+    if ($startDate && $endDate) {
         try {
             $startCarbon = Carbon::parse($startDate);
             $endCarbon = Carbon::parse($endDate);
 
             if ($startCarbon->greaterThan($endCarbon)) {
-                // Baris ini yang mengirim error kembali ke view
                 return redirect()->back()->withErrors([
                     'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
                 ])->withInput();
             }
         } catch (\Exception $e) {
-            // Validasi format tanggal (walaupun input type=date sudah membantu)
             return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
     }
+    
+    $performanceData = collect(); 
+
+    if ($isFiltered) {
         
-        $performanceData = collect(); // Default data kosong
+        // 1. HITUNG TOTAL STOK MASUK (via Subquery)
+        $stockTotals = DB::table('stock_logs as sl')
+            ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
+            ->select('sl.username_id as dse_id', DB::raw('SUM(sli.quantity) as total_stok_masuk'))
+            ->whereDate('sl.date', '>=', $queryStartDate)
+            ->whereDate('sl.date', '<=', $queryEndDate)
+            ->groupBy('sl.username_id');
 
-        if ($isFiltered) {
-            $performanceData = DB::table('stock_logs as sl')
-                ->select(
-                    'sl.username_id as dse_id',
-                    DB::raw('SUM(sli.quantity) as total_stok_masuk'),
-                    DB::raw('COALESCE(SUM(rli.quantity), 0) as total_retur')
-                )
-                // Join Stock Log Items
-                ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
-                
-                // LEFT JOIN Retur Log untuk mendapatkan 0 jika tidak ada retur
-                ->leftJoin('return_logs as rl', function ($join) use ($queryStartDate, $queryEndDate) {
-                    $join->on('sl.username_id', '=', 'rl.username_id')
-                         // PERBAIKAN: Gunakan alias rl.date
-                         ->whereDate('rl.date', '>=', $queryStartDate) 
-                         ->whereDate('rl.date', '<=', $queryEndDate); 
-                })
-                // Join Retur Log Items
-                ->leftJoin('return_log_items as rli', 'rl.id', '=', 'rli.return_log_id')
-                
-                // Join Users untuk Filter Regional
-                ->join('users', 'sl.username_id', '=', 'users.id_dse')
-                ->where('users.region', $userRegion)
-                
-                // Filter Periode STOK
-                ->whereDate('sl.date', '>=', $queryStartDate)
-                ->whereDate('sl.date', '<=', $queryEndDate)
-                
-                ->groupBy('sl.username_id')
-                ->orderBy('total_retur', 'asc')
-                ->get();
-        }
-
-        // 3. Hitung Rasio Retur dan Finalisasi Data
-        $finalData = $performanceData->map(function ($item) {
-            $stokKeluar = $item->total_stok_masuk - $item->total_retur; 
+        // 2. HITUNG TOTAL RETUR (via Subquery)
+        $returnTotals = DB::table('return_logs as rl')
+            ->join('return_log_items as rli', 'rl.id', '=', 'rli.return_log_id')
+            ->select('rl.username_id as dse_id', DB::raw('SUM(rli.quantity) as total_retur'))
+            ->whereDate('rl.date', '>=', $queryStartDate)
+            ->whereDate('rl.date', '<=', $queryEndDate)
+            ->groupBy('rl.username_id');
             
-            $returnRate = $item->total_stok_masuk > 0 
-                          ? ($item->total_retur / $item->total_stok_masuk) * 100
-                          : 0;
-
-            return [
-                'dse_id' => $item->dse_id,
-                'total_stok_masuk' => (int) $item->total_stok_masuk,
-                'total_retur' => (int) $item->total_retur,
-                'stok_keluar_netto' => $stokKeluar,
-                'return_rate' => round($returnRate, 2)
-            ];
-        })->sortBy('return_rate')->values()->all();
-
-        return view('cse.view_performa', [
-            'performaData' => $finalData,
-            'startDate' => $queryStartDate, 
-            'endDate' => $queryEndDate, 
-            'userRegion' => $userRegion,
-            'isFiltered' => $isFiltered, // Mengontrol visibility konten
-        ]);
+        // 3. GABUNGKAN DENGAN USER LIST (Outer Join)
+        // Kita gunakan user list regional sebagai dasar agar semua DSE muncul (termasuk yang 0 stok/retur)
+        $performanceData = User::where('role', 'DSE')
+            ->where('region', $userRegion)
+            ->select('users.id_dse') // Hanya pilih ID DSE
+            ->leftJoinSub($stockTotals, 'stock_t', function ($join) {
+                $join->on('users.id_dse', '=', 'stock_t.dse_id');
+            })
+            ->leftJoinSub($returnTotals, 'return_t', function ($join) {
+                $join->on('users.id_dse', '=', 'return_t.dse_id');
+            })
+            ->select(
+                'users.id_dse as dse_id',
+                DB::raw('COALESCE(stock_t.total_stok_masuk, 0) as total_stok_masuk'),
+                DB::raw('COALESCE(return_t.total_retur, 0) as total_retur')
+            )
+            ->get();
     }
+
+    // 4. Hitung Rasio Retur dan Finalisasi Data
+    $finalData = $performanceData->map(function ($item) {
+        $stokMasuk = (int) $item->total_stok_masuk;
+        $totalRetur = (int) $item->total_retur;
+        $stokKeluar = $stokMasuk - $totalRetur; 
+        
+        $returnRate = $stokMasuk > 0 
+                      ? ($totalRetur / $stokMasuk) * 100
+                      : 0; // Hindari pembagian dengan nol
+
+        return [
+            'dse_id' => $item->dse_id,
+            'total_stok_masuk' => $stokMasuk,
+            'total_retur' => $totalRetur,
+            'stok_keluar_netto' => $stokKeluar,
+            'return_rate' => round($returnRate, 2)
+        ];
+    })->sortBy('return_rate')->values()->all();
+
+    return view('cse.view_performa', [
+        'performaData' => $finalData,
+        'startDate' => $queryStartDate, 
+        'endDate' => $queryEndDate, 
+        'userRegion' => $userRegion,
+        'isFiltered' => $isFiltered, 
+    ]);
+}
 
     public function editOutlet($id)
     {

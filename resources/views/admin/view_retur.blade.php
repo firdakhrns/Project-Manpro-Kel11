@@ -144,7 +144,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div class="input-group">
                     <label for="dse_id">Pilih DSE Target</label>
-                    <select name="dse_id" id="dse_id" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    <select name="username_id" id="dse_id" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
                         <option value="">Pilih DSE</option>
                         @foreach($dseUsers ?? [] as $user)
                             <option value="{{ $user->id_dse }}">{{ $user->name }} ({{ $user->id_dse }})</option>
@@ -176,7 +176,6 @@
                 <div id="kartu-perdana-section" class="category-section" data-product-type="kartu-perdana">
                     <h2 class="text-xl font-bold mb-4">Kartu Perdana</h2>
                     <div class="space-y-4">
-                        {{-- FIELD NAMES DIUBAH MENJADI 'retur' --}}
                         <div class="input-group"><label for="kp_3gb">3 GB</label><input type="number" id="kp_3gb" name="retur[kp][3gb]" placeholder="Masukkan jumlah" min="0" value="0"></div>
                         <div class="input-group"><label for="kp_6gb">6 GB</label><input type="number" id="kp_6gb" name="retur[kp][6gb]" placeholder="Masukkan jumlah" min="0" value="0"></div>
                         <div class="input-group"><label for="kp_9gb">9 GB</label><input type="number" id="kp_9gb" name="retur[kp][9gb]" placeholder="Masukkan jumlah" min="0" value="0"></div>
@@ -187,19 +186,15 @@
                 <div id="voucher-section" class="category-section md:col-span-2" data-product-type="voucher">
                     <h2 class="text-xl font-bold mb-4">Voucher</h2>
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4">
-                        
-                        {{-- FIELD NAMES DIUBAH MENJADI 'retur' --}}
-                        <div class="input-group"><label for="v_1gb_2h">1 GB/2 hari</label><input type="number" id="v_1gb_2h" name="retur[v][1gb_2h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_15gb_7h">15 GB/7 hari</label><input type="number" id="v_15gb_7h" name="retur[v][15gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        
-                        <div class="input-group"><label for="v_3gb_3h">3 GB/3 hari</label><input type="number" id="v_3gb_3h" name="retur[v][3gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_3gb_28h">3 GB/28 hari</label><input type="number" id="v_3gb_28h" name="retur[v][3gb_28h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        
-                        <div class="input-group"><label for="v_5gb_5h">5 GB/5 hari</label><input type="number" id="v_5gb_5h" name="retur[v][5gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_5gb_2h">5 GB/2 hari</label><input type="number" id="v_5gb_2h" name="retur[v][5gb_2h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-
-                        <div class="input-group"><label for="v_7gb_7h">7 GB/7 hari</label><input type="number" id="v_7gb_7h" name="retur[v][7gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_5gb_3h">5 GB/3 hari</label><input type="number" id="v_5gb_3h" name="retur[v][5gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_15gb_1h">1.5 GB/1 hari</label><input type="number" id="v_15gb_1h" name="stok[v][15gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>  
+                        <div class="input-group"><label for="v_35gb_5h">3.5 GB/5 hari</label><input type="number" id="v_35gb_5h" name="stok[v][35gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_3h">5 GB/3 hari</label><input type="number" id="v_5gb_3h" name="stok[v][5gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_2h">5 GB/2 hari</label><input type="number" id="v_5gb_2h" name="stok[v][5gb_2h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_5h">5 GB/5 hari</label><input type="number" id="v_5gb_5h" name="stok[v][5gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_7gb_7h">7 GB/7 hari</label><input type="number" id="v_7gb_7h" name="stok[v][7gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_3gb_3h">3 GB/3 hari</label><input type="number" id="v_3gb_3h" name="stok[v][3gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_3gb_1h">3 GB/1 hari</label><input type="number" id="v_3gb_1h" name="stok[v][3gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_15gb_7h">15 GB/7 hari</label><input type="number" id="v_15gb_7h" name="stok[v][15gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
                     </div>
                 </div>
 
