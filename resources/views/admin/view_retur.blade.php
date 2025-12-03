@@ -126,12 +126,21 @@
 </div>
 @endif
 
-{{-- BLOK VALIDASI LARAVEL $errors->any() --}}
 @if ($errors->any())
     <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-        <strong class="font-bold">Gagal Validasi Input:</strong>
+        <strong class="font-bold">Gagal Validasi!</strong>
         <ul class="list-disc list-inside space-y-1">
             @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+@if (session('custom_errors'))
+    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        <strong class="font-bold">Gagal Validasi Bisnis!</strong>
+        <ul class="list-disc list-inside space-y-1">
+            @foreach (session('custom_errors') as $error)
                 <li>{{ $error }}</li>
             @endforeach
         </ul>
@@ -186,15 +195,15 @@
                 <div id="voucher-section" class="category-section md:col-span-2" data-product-type="voucher">
                     <h2 class="text-xl font-bold mb-4">Voucher</h2>
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4">
-                        <div class="input-group"><label for="v_15gb_1h">1.5 GB/1 hari</label><input type="number" id="v_15gb_1h" name="stok[v][15gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>  
-                        <div class="input-group"><label for="v_35gb_5h">3.5 GB/5 hari</label><input type="number" id="v_35gb_5h" name="stok[v][35gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_5gb_3h">5 GB/3 hari</label><input type="number" id="v_5gb_3h" name="stok[v][5gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_5gb_2h">5 GB/2 hari</label><input type="number" id="v_5gb_2h" name="stok[v][5gb_2h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_5gb_5h">5 GB/5 hari</label><input type="number" id="v_5gb_5h" name="stok[v][5gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_7gb_7h">7 GB/7 hari</label><input type="number" id="v_7gb_7h" name="stok[v][7gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_3gb_3h">3 GB/3 hari</label><input type="number" id="v_3gb_3h" name="stok[v][3gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_3gb_1h">3 GB/1 hari</label><input type="number" id="v_3gb_1h" name="stok[v][3gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
-                        <div class="input-group"><label for="v_15gb_7h">15 GB/7 hari</label><input type="number" id="v_15gb_7h" name="stok[v][15gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_15gb_1h">1.5 GB/1 hari</label><input type="number" id="v_15gb_1h" name="retur[v][15gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>  
+                        <div class="input-group"><label for="v_35gb_5h">3.5 GB/5 hari</label><input type="number" id="v_35gb_5h" name="retur[v][35gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_3h">5 GB/3 hari</label><input type="number" id="v_5gb_3h" name="retur[v][5gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_2h">5 GB/2 hari</label><input type="number" id="v_5gb_2h" name="retur[v][5gb_2h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_5gb_5h">5 GB/5 hari</label><input type="number" id="v_5gb_5h" name="retur[v][5gb_5h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_7gb_7h">7 GB/7 hari</label><input type="number" id="v_7gb_7h" name="retur[v][7gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_3gb_3h">3 GB/3 hari</label><input type="number" id="v_3gb_3h" name="retur[v][3gb_3h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_3gb_1h">3 GB/1 hari</label><input type="number" id="v_3gb_1h" name="retur[v][3gb_1h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
+                        <div class="input-group"><label for="v_15gb_7h">15 GB/7 hari</label><input type="number" id="v_15gb_7h" name="retur[v][15gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
                     </div>
                 </div>
 
@@ -207,11 +216,10 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const dseSelect = document.getElementById('dse_id');
+    document.addEventListener('DOMContentLoaded', function() {
+        const dseSelect = document.getElementById('dse_id');
         const outletSelect = document.getElementById('outlet_id_select');
 
-    
         const form = document.getElementById('returFormAdmin');
         if (form) {
             form.addEventListener('submit', function(e) {
@@ -222,37 +230,71 @@
                 }
             });
         }
+        
+        dseSelect.addEventListener('change', function() {
+            const selectedDSEId = this.value;
+            outletSelect.innerHTML = '<option value="">Memuat Outlet...</option>'; // Loading State
 
-            const categoryButtons = document.querySelectorAll('.category-button');
-            const kpSection = document.getElementById('kartu-perdana-section');
-            const voucherSection = document.getElementById('voucher-section');
-
-            function showCategory(category) {
-                if (category === 'all') {
-                    kpSection.style.display = 'block';
-                    voucherSection.style.display = 'block';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr 2fr';
-                } else if (category === 'kartu-perdana') {
-                    kpSection.style.display = 'block';
-                    voucherSection.style.display = 'none';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
-                } else if (category === 'voucher') {
-                    kpSection.style.display = 'none';
-                    voucherSection.style.display = 'block';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
-                }
+            if (!selectedDSEId) {
+                outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';
+                return;
             }
 
-            categoryButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    categoryButtons.forEach(btn => btn.classList.remove('active'));
-                    this.classList.add('active');
-                    showCategory(this.dataset.category);
-                });
-            });
+            fetch('/admin/get-outlets-by-dse?dse_id=' + selectedDSEId)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Gagal memuat outlet. Status: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(outlets => {
+                    outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';
 
-            showCategory('all');
+                    if (outlets.length === 0) {
+                        outletSelect.innerHTML += '<option value="" disabled>Tidak ada outlet di region DSE ini</option>';
+                        return;
+                    }
+
+                    outlets.forEach(outlet => {
+                        const option = document.createElement('option');
+                        option.value = outlet.id;
+                        option.textContent = `${outlet.name} - ${outlet.region}`;
+                        outletSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching outlets:', error);
+                    outletSelect.innerHTML = '<option value="">Gagal memuat: Cek Konsol</option>';
+                });
         });
-    </script>
+
+        const categoryButtons = document.querySelectorAll('.category-button');
+        const kpSection = document.getElementById('kartu-perdana-section');
+        const voucherSection = document.getElementById('voucher-section');
+
+        function showCategory(category) {
+            if (category === 'all') {
+                kpSection.style.display = 'block';
+                voucherSection.style.display = 'block';
+            } else if (category === 'kartu-perdana') {
+                kpSection.style.display = 'block';
+                voucherSection.style.display = 'none';
+            } else if (category === 'voucher') {
+                kpSection.style.display = 'none';
+                voucherSection.style.display = 'block';
+            }
+        }
+
+        categoryButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                categoryButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                showCategory(this.dataset.category);
+            });
+        });
+
+        showCategory('all');
+    });
+</script>
 </body>
 </html>

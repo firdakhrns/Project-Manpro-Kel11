@@ -79,11 +79,9 @@
             </svg>
         </a>
 
-        <div class="header-content">
-            <h1 class="text-4xl font-extrabold text-center mb-2">{{ $judulRiwayat ?? 'Riwayat Pencatatan' }}</h1> 
-        <p class="text-gray-700 text-center mb-8">Pencarian Riwayat Pencatatan Inventaris DSE</p>
-    </div>
-
+        {{-- Menggunakan $judulRiwayat dari controller jika tersedia, jika tidak default ke "Riwayat" --}}
+        <h1 class="mb-8">{{ $judulRiwayat ?? 'Riwayat Pencatatan' }}</h1> 
+        <p class="text-gray-500 text-center -mt-6 mb-8">Pencarian Riwayat Pencatatan Inventaris DSE</p>
 
         {{-- FORM FILTER UTAMA (Mengandung Tanggal dan Tipe Log) --}}
         <form method="GET" action="{{ route('dse.riwayat_pencatatan') }}" class="flex flex-col sm:flex-row justify-center items-center mb-8 gap-3">
@@ -139,11 +137,6 @@
                 <div class="info-badge info-badge-red">DSE ID</div>
                 <div class="info-badge-text font-semibold text-sm">{{ $dseId ?? 'N/A' }}</div>
             </div>
-
-            <div class="flex items-center">
-                <div class="info-badge info-badge-red">Outlet</div>
-                <div class="info-badge-text font-semibold text-sm">{{ $outletName ?? 'N/A' }}</div>
-            </div>
             
             <div class="flex items-center">
                 <div class="info-badge info-badge-red">Tanggal Tampil</div>
@@ -151,13 +144,12 @@
             </div>
 
         </div>
-        
-        {{-- Tabel Detail --}}
-        {{-- Tabel Detail --}}
+
 <div class="overflow-x-auto">
     <table>
         <thead>
             <tr>
+                <th>Outlet</th>
                 <th>Kategori</th>
                 <th>Jenis Produk</th>
                 @if($tipe == 'all')
@@ -172,21 +164,22 @@
         <tbody>
             @forelse($dataToDisplay as $item)
                 <tr>
-                    <td>{{ $item[0] }}</td>
-                    <td>{{ $item[1] }}</td>
+                    <td>{{ $item[0] }}</td> {{-- Outlet --}}
+                    <td>{{ $item[1] }}</td> {{-- Kategori --}}
+                    <td>{{ $item[2] }}</td> {{-- Jenis Produk --}}
                     @if($tipe == 'all')
-                        <td>{{ $item[2] }}</td>
-                        <td>{{ $item[3] }}</td>
-                        <td class="{{ $item[4] < 0 ? 'text-red-600 font-bold' : '' }}">
-                            {{ $item[4] }}
+                        <td>{{ $item[3] }}</td> {{-- Stok --}}
+                        <td>{{ $item[4] }}</td> {{-- Retur --}}
+                        <td class="{{ $item[5] < 0 ? 'text-red-600 font-bold' : '' }}">
+                            {{ $item[5] }}
                         </td>
                     @else
-                        <td>{{ $item[2] }}</td>
+                        <td>{{ $item[3] }}</td> {{-- Jumlah --}}
                     @endif
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ $tipe == 'all' ? 5 : 3 }}" class="text-center py-6 text-gray-500">
+                    <td colspan="{{ $tipe == 'all' ? 6 : 4 }}" class="text-center py-6 text-gray-500">
                         @if($tipe == 'all')
                             Data tidak ditemukan untuk tanggal ini.
                         @else

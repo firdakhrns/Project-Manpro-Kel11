@@ -92,6 +92,7 @@
             <h1 class="text-4xl font-extrabold text-center mb-2">Pencatatan Stok Retur</h1>
             <p class="text-gray-700 text-center mb-8">Silakan isi sesuai jumlah yang diretur</p>
         </div>
+
         @if(session('success'))
 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
     <strong class="font-bold">Sukses!</strong>
@@ -122,7 +123,7 @@
         <strong class="font-bold">Gagal Validasi Bisnis!</strong>
         <ul class="list-disc list-inside space-y-1">
             @foreach (session('custom_errors') as $error)
-                <li>⚠️ {{ $error }}</li>
+                <li>{{ $error }}</li>
             @endforeach
         </ul>
     </div>
@@ -152,9 +153,9 @@
 
             <input type="hidden" name="outlet_id" id="outlet_id_hidden_retur">
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-6">
+            <div class="grid grid-cols-2 gap-x-12 gap-y-6">
                 
-                <div id="kartu-perdana-section" class="category-section md:col-span-1">
+                <div id="kartu-perdana-section" class="category-section">
                     <h2 class="text-xl font-bold mb-4">Kartu Perdana</h2>
                     <div class="grid grid-cols-1 gap-6">
                         @php $kp_products = ['3 GB', '6 GB', '9 GB', '20 GB']; @endphp
@@ -173,14 +174,15 @@
                     <div class="grid grid-cols-2 gap-x-6 gap-y-6">
                         @php
                             $v_products = [
-                                '1 GB/2 hari', '15 GB/7 hari',
-                                '3 GB/3 hari', '3 GB/28 hari',
-                                '5 GB/5 hari', '5 GB/2 hari',
-                                '7 GB/7 hari', '5 GB/3 hari',
+                                '1.5 GB/1 hari', '5 GB/5 hari',
+                                '3.5 GB/5 hari', '7 GB/7hari',
+                                '5 GB/3 hari', '3 GB/3 hari',
+                                '5 GB/2 hari', '3 GB/1 hari', 
+                                '15 GB/7 hari',
                             ];
                         @endphp
                         @foreach($v_products as $product)
-                            @php $name = strtolower(str_replace([' ', '/', 'hari'], ['_', '_', 'h'], $product)); @endphp
+                            @php $name = strtolower(str_replace([' ', '/', 'hari'], ['', '', 'h'], $product)); @endphp
                             <div class="input-group">
                                 <label for="v_retur_{{ $name }}">{{ $product }}</label>
                                 <input type="number" id="v_retur_{{ $name }}" name="retur[v][{{ $name }}]" placeholder="Masukkan jumlah" min="0" value="0">
@@ -204,20 +206,17 @@
             const outletHidden = document.getElementById('outlet_id_hidden_retur');
             const form = document.querySelector('form');
 
-            // 1. Update hidden outlet_id dan simpan di localStorage
             outletSelect.addEventListener('change', function() {
                 outletHidden.value = this.value;
                 localStorage.setItem('selected_outlet_id_retur', this.value);
             });
             
-            // 2. Load selected outlet dari localStorage
             const storedOutletId = localStorage.getItem('selected_outlet_id_retur');
             if (storedOutletId) {
                 outletSelect.value = storedOutletId;
                 outletHidden.value = storedOutletId;
             }
 
-            // 3. Logika Show/Hide Kategori
             function showCategory(category) {
                 sections.forEach(section => {
                     const isPerdana = section.id === 'kartu-perdana-section';

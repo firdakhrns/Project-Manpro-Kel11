@@ -12,29 +12,34 @@ use App\Models\StockLog;
 use App\Models\StockLogItem;
 use App\Models\ReturnLog;
 use App\Models\ReturnLogItem;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Exception;
+
 
 class DSEInputController extends Controller
 {
     // Mapping Form Input Key ke Product Code
     private $productMapping = [
-            '3gb' => 'KP_3GB',
-            '6gb' => 'KP_6GB', 
-            '9gb' => 'KP_9GB',
-            '20gb' => 'KP_20GB',
+    // Kartu Perdana - sesuaikan dengan underscore
+    '3_gb' => 'KP_3GB',
+    '6_gb' => 'KP_6GB', 
+    '9_gb' => 'KP_9GB',
+    '20_gb' => 'KP_20GB',
 
-            '15gb_1h' => 'FI15_1D', 
-            '35gb_5h' => 'FI35_5D', 
-            '5gb_3h' => 'FI5_3D',     
-            '5gb_2h' => 'FI5_2D',    
-            '5gb_5h' => 'FI5_5D', 
-            '7gb_7h' => 'FI7_7D', 
-            '3gb_3h' => 'FI3_3D', 
-            '3gb_1h' => 'FI3_1D', 
-            '15gb_7h' => 'FI15_7D',
-        ];
+    // Voucher - sesuaikan dengan format form
+    '1.5gb1h' => 'FI15_1D',  // 1.5 GB/1 hari
+    '5gb5h' => 'FI5_5D',     // 5 GB/5 hari
+    '3.5gb5h' => 'FI35_5D',  // 3.5 GB/5 hari
+    '7gb7h' => 'FI7_7D',     // 7 GB/7 hari
+    '5gb3h' => 'FI5_3D',     // 5 GB/3 hari
+    '3gb3h' => 'FI3_3D',     // 3 GB/3 hari
+    '5gb2h' => 'FI5_2D',     // 5 GB/2 hari
+    '3gb1h' => 'FI3_1D',     // 3 GB/1 hari
+    '15gb7h' => 'FI15_7D',   // 15 GB/7 hari
+];
+
     
     private function getProductsMap()
     {
@@ -47,184 +52,338 @@ class DSEInputController extends Controller
         if (!Auth::guard('web')->check()) { 
             return redirect()->route('login'); 
         }
-        $outlets = Outlet::all(); 
+        $user = Auth::user();
+        $outlets = Outlet::where('region', $user->region)->get(); 
         return view('dse.input_stok', compact('outlets')); 
     }
 
     public function storeStok(Request $request)
-    {
-        $messages = [
+{
+    // Debug: log semua input
+    Log::info('=== STORE STOK START ===');
+    Log::info('Full Request:', $request->all());
+    
+    $messages = [
         'stok.kp.*.max' => 'Jumlah stok Kartu Perdana tidak boleh melebihi :max.',
         'stok.v.*.max' => 'Jumlah stok Voucher tidak boleh melebihi :max.',
         'stok.kp.*.min' => 'Jumlah stok harus minimal :min.',
         'stok.v.*.min' => 'Jumlah stok harus minimal :min.',
     ];
+
+    $user = Auth::user();
     
     $request->validate([
-        'outlet_id' => 'required|exists:outlets,id',
+        'outlet_id' => [
+            'required',
+            'exists:outlets,id',
+            function ($attribute, $value, $fail) use ($user) {
+                $outlet = Outlet::find($value);
+                if (!$outlet || $outlet->region !== $user->region) {
+                    $fail('Outlet tidak valid atau tidak berada di region Anda.');
+                }
+            }
+        ],
         'stok' => 'nullable|array',
         'stok.kp.*' => 'nullable|integer|min:0|max:500',
         'stok.v.*' => 'nullable|integer|min:0|max:500',
     ], $messages);
-        
-        $allStokInputs = array_merge($request->input('stok.kp', []), $request->input('stok.v', []));
-        $productsMap = $this->getProductsMap();
 
-        DB::beginTransaction();
-        try {
-            $stockLog = StockLog::create([
-                'username_id' => Auth::user()->id_dse,
-                'outlet_id' => $request->outlet_id,
-                'date' => now()->toDateString(),
-                'notes' => 'Stok harian',
-            ]);
-
-            $logItemsToInsert = [];
-            $savedItems = 0;
-
-            foreach ($allStokInputs as $inputKey => $quantity) {
-                $productCode = $this->productMapping[$inputKey] ?? null;
-                $quantity = (int) $quantity;
-
-                if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
-                    $logItemsToInsert[] = [
-                        'stock_log_id' => $stockLog->id,
-                        'product_id' => $productsMap[$productCode],
-                        'quantity' => $quantity,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                    $savedItems++;
-                }
-            }
-
-            if (!empty($logItemsToInsert)) {
-                StockLogItem::insert($logItemsToInsert);
-            }
-            
-            DB::commit();
-            
-            return redirect()->route('dse.riwayat_pencatatan', [
-                'tanggal' => Carbon::now()->toDateString(),
-                'tipe' => 'stok'
-            ])->with('success', 'Data stok berhasil disimpan!');
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal menyimpan data stok: ' . $e->getMessage())->withInput();
-        }
+    // Debug: lihat struktur data yang masuk
+    Log::info('KP Inputs:', $request->input('stok.kp', []));
+    Log::info('V Inputs:', $request->input('stok.v', []));
+    
+    // PERBAIKAN: Gabungkan array dengan benar
+    $kpInputs = $request->input('stok.kp', []);
+    $vInputs = $request->input('stok.v', []);
+    
+    Log::info('KP Inputs Array:', $kpInputs);
+    Log::info('V Inputs Array:', $vInputs);
+    
+    // Gabungkan menjadi satu array
+    $allStokInputs = [];
+    
+    foreach ($kpInputs as $key => $value) {
+        $allStokInputs[$key] = $value;
     }
+    
+    foreach ($vInputs as $key => $value) {
+        $allStokInputs[$key] = $value;
+    }
+    
+    Log::info('All Stok Inputs Combined:', $allStokInputs);
+    
+    $productsMap = $this->getProductsMap();
+    Log::info('Products Map:', $productsMap->toArray());
+
+    DB::beginTransaction();
+    try {
+        $stockLog = StockLog::create([
+            'username_id' => Auth::user()->id_dse,
+            'outlet_id' => $request->outlet_id,
+            'date' => now()->toDateString(),
+            'notes' => 'Stok harian',
+        ]);
+
+        $logItemsToInsert = [];
+        $savedItems = 0;
+
+        foreach ($allStokInputs as $inputKey => $quantity) {
+            $productCode = $this->productMapping[$inputKey] ?? null;
+            $quantity = (int) $quantity;
+            
+            Log::info("Processing {$inputKey}: quantity={$quantity}, productCode={$productCode}");
+
+            if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
+                $logItemsToInsert[] = [
+                    'stock_log_id' => $stockLog->id,
+                    'product_id' => $productsMap[$productCode],
+                    'quantity' => $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                $savedItems++;
+                Log::info("✓ Added: {$productCode} (ID: {$productsMap[$productCode]}) = {$quantity}");
+            } elseif ($quantity > 0) {
+                Log::warning("✗ Skipped: {$inputKey} -> productCode not found in mapping");
+            }
+        }
+
+        Log::info("Total items to insert: " . count($logItemsToInsert));
+
+        if (!empty($logItemsToInsert)) {
+            StockLogItem::insert($logItemsToInsert);
+            Log::info("Items inserted successfully");
+        } else {
+            Log::warning("No items to insert - all quantities might be 0");
+        }
+        
+        DB::commit();
+        
+        Log::info('=== STORE STOK SUCCESS ===');
+        
+        return redirect()->route('dse.riwayat_pencatatan', [
+            'tanggal' => Carbon::now()->toDateString(),
+            'tipe' => 'stok'
+        ])->with('success', 'Data stok berhasil disimpan!');
+        
+    } catch (Exception $e) {
+        DB::rollBack();
+        Log::error('Error saving stok: ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
+        return back()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
+    }
+}
     
     public function showInputRetur()
     {
         if (!Auth::guard('web')->check()) { 
             return redirect()->route('login'); 
         }
-        $outlets = Outlet::all();
+        $user = Auth::user();
+        $outlets = Outlet::where('region', $user->region)->get();
         return view('dse.input_retur', compact('outlets'));
     }
 
     public function storeRetur(Request $request)
-    {
-        $messages = [
+{
+    Log::info('=== STORE RETUR START ===');
+    Log::info('Full Request:', $request->all());
+    
+    $user = Auth::user();
+    
+    $messages = [
         'retur.kp.*.max' => 'Jumlah retur Kartu Perdana tidak boleh melebihi :max.',
         'retur.v.*.max' => 'Jumlah retur Voucher tidak boleh melebihi :max.',
         'retur.kp.*.min' => 'Jumlah retur harus minimal :min.',
         'retur.v.*.min' => 'Jumlah retur harus minimal :min.',
     ];
     
+    // Validasi custom untuk retur > stok
+    $customErrors = [];
+    
     $validator = Validator::make($request->all(), [
-        'outlet_id' => 'required|exists:outlets,id',
+        'outlet_id' => [
+            'required',
+            'exists:outlets,id',
+            function ($attribute, $value, $fail) use ($user) {
+                $outlet = Outlet::find($value);
+                if (!$outlet || $outlet->region !== $user->region) {
+                    $fail('Outlet tidak valid atau tidak berada di region Anda.');
+                }
+            }
+        ],
         'retur' => 'nullable|array',
         'retur.kp.*' => 'nullable|integer|min:0|max:500', 
         'retur.v.*' => 'nullable|integer|min:0|max:500',
     ], $messages);
-    
-    // Hentikan jika validasi dasar gagal (max:500, dll.)
+
     if ($validator->fails()) {
+        Log::error('Validation failed:', $validator->errors()->toArray());
         return back()->withErrors($validator)->withInput();
     }
     
-    // 2. Validasi Bisnis: Retur tidak boleh lebih dari Stok Terakhir
-    $dseId = Auth::user()->id_dse;
+    // 1. HITUNG TOTAL STOK YANG TERSEDIA PER PRODUK
     $outletId = $request->outlet_id;
-    $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
-    $productsMap = $this->getProductsMap();
-    $errors = []; // Array ini yang mengumpulkan semua error, termasuk multiple product
+    $today = Carbon::today()->toDateString();
     
-    foreach ($allReturInputs as $inputKey => $returQuantity) {
-        $returQuantity = (int) $returQuantity;
-        if ($returQuantity <= 0) continue;
+    // Ambil total stok yang sudah diinput hari ini untuk outlet ini
+    $todayStockLogs = StockLog::where('outlet_id', $outletId)
+        ->whereDate('date', $today)
+        ->with('items.product')
+        ->get();
     
-        $productCode = $this->productMapping[$inputKey] ?? null;
-        $productId = $productsMap[$productCode] ?? null;
+    // Ambil total retur yang sudah diinput hari ini untuk outlet ini
+    $todayReturnLogs = ReturnLog::where('outlet_id', $outletId)
+        ->whereDate('date', $today)
+        ->with('items.product')
+        ->get();
     
-        if ($productId) {
-            $lastStockItem = StockLogItem::where('product_id', $productId)
-                ->whereHas('stockLog', function($q) use ($dseId, $outletId) {
-                    $q->where('username_id', $dseId)->where('outlet_id', $outletId);
-                })
-                ->orderBy('created_at', 'desc')
-                ->first();
+    // Hitung stok tersedia per product
+    $availableStock = [];
+    
+    // Proses data stok
+    foreach ($todayStockLogs as $stockLog) {
+        foreach ($stockLog->items as $item) {
+            if ($item->product) {
+                $productId = $item->product_id;
+                $productCode = $item->product->product_code;
                 
-            $stokTersedia = $lastStockItem ? $lastStockItem->quantity : 0;
-            
-            if ($returQuantity > $stokTersedia) {
-                // 💥 PERUBAHAN: Pesan yang lebih umum, informatif, dan sopan
-                $errors[$inputKey] = "Gagal: Jumlah Retur untuk produk $productCode ($returQuantity) melebihi Stok Terakhir yang tercatat ($stokTersedia). Harap periksa riwayat stok atau input stok terlebih dahulu.";
+                if (!isset($availableStock[$productCode])) {
+                    $availableStock[$productCode] = 0;
+                }
+                $availableStock[$productCode] += $item->quantity;
             }
         }
     }
     
-    if (!empty($errors)) {
-
-        return back()->withErrors($errors)->withInput();
-    }
-
-        DB::beginTransaction();
-        try {
-            $returnLog = ReturnLog::create([
-                'username_id' => Auth::user()->id_dse,
-                'outlet_id' => $request->outlet_id,
-                'date' => now()->toDateString(),
-                'notes' => 'Retur harian',
-            ]);
-
-            $logItemsToInsert = [];
-            $savedItems = 0;
-
-            foreach ($allReturInputs as $inputKey => $quantity) {
-                $productCode = $this->productMapping[$inputKey] ?? null;
-                $quantity = (int) $quantity;
-
-                if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
-                    $logItemsToInsert[] = [
-                        'return_log_id' => $returnLog->id,
-                        'product_id' => $productsMap[$productCode],
-                        'quantity' => $quantity,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                    $savedItems++;
+    // Kurangi dengan retur yang sudah ada
+    foreach ($todayReturnLogs as $returnLog) {
+        foreach ($returnLog->items as $item) {
+            if ($item->product) {
+                $productCode = $item->product->product_code;
+                
+                if (isset($availableStock[$productCode])) {
+                    $availableStock[$productCode] -= $item->quantity;
+                } else {
+                    $availableStock[$productCode] = -$item->quantity;
                 }
             }
-
-            if (!empty($logItemsToInsert)) {
-                ReturnLogItem::insert($logItemsToInsert);
-            }
-            
-            DB::commit();
-            
-            return redirect()->route('dse.riwayat_pencatatan', [
-                'tanggal' => Carbon::now()->toDateString(),
-                'tipe' => 'retur'
-            ])->with('success', 'Data retur berhasil disimpan!');
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal menyimpan data retur: ' . $e->getMessage())->withInput();
         }
     }
+    
+    Log::info('Available stock before new retur:', $availableStock);
+    
+    // 2. VALIDASI RETUR TIDAK BOLEH LEBIH BESAR DARI STOK
+    $kpInputs = $request->input('retur.kp', []);
+    $vInputs = $request->input('retur.v', []);
+    
+    Log::info('KP Retur Inputs:', $kpInputs);
+    Log::info('V Retur Inputs:', $vInputs);
+    
+    $allReturInputs = [];
+    
+    foreach ($kpInputs as $key => $value) {
+        $allReturInputs[$key] = $value;
+    }
+    
+    foreach ($vInputs as $key => $value) {
+        $allReturInputs[$key] = $value;
+    }
+    
+    Log::info('All Retur Inputs Combined:', $allReturInputs);
+    
+    $productsMap = $this->getProductsMap();
+    Log::info('Products Map:', $productsMap->toArray());
+    
+    // Validasi setiap item retur
+    foreach ($allReturInputs as $inputKey => $quantity) {
+        $quantity = (int) $quantity;
+        
+        if ($quantity > 0) {
+            $productCode = $this->productMapping[$inputKey] ?? null;
+            
+            if ($productCode && $productsMap->has($productCode)) {
+                // Cek stok tersedia
+                $available = $availableStock[$productCode] ?? 0;
+                
+                if ($quantity > $available) {
+                    // Cari nama produk untuk pesan error yang lebih informatif
+                    $product = Product::where('product_code', $productCode)->first();
+                    $productName = $product ? $product->product_name : $productCode;
+                    
+                    $customErrors[] = "Retur {$productName} ({$quantity}) melebihi stok tersedia ({$available})";
+                    
+                    Log::warning("Retur validation failed: {$productCode} - Requested: {$quantity}, Available: {$available}");
+                }
+            }
+        }
+    }
+    
+    // Jika ada error validasi, kembalikan dengan error
+    if (!empty($customErrors)) {
+        Log::error('Business validation failed:', $customErrors);
+        return back()->with('custom_errors', $customErrors)->withInput();
+    }
+    
+    // 3. PROSES SIMPAN RETUR JIKA VALIDASI LOLOS
+    DB::beginTransaction();
+    try {
+        $returnLog = ReturnLog::create([
+            'username_id' => Auth::user()->id_dse,
+            'outlet_id' => $request->outlet_id,
+            'date' => now()->toDateString(),
+            'notes' => 'Retur harian',
+        ]);
+
+        $logItemsToInsert = [];
+        $savedItems = 0;
+
+        foreach ($allReturInputs as $inputKey => $quantity) {
+            $productCode = $this->productMapping[$inputKey] ?? null;
+            $quantity = (int) $quantity;
+            
+            Log::info("Processing {$inputKey}: quantity={$quantity}, productCode={$productCode}");
+
+            if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
+                $logItemsToInsert[] = [
+                    'return_log_id' => $returnLog->id,
+                    'product_id' => $productsMap[$productCode],
+                    'quantity' => $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                $savedItems++;
+                Log::info("✓ Added: {$productCode} (ID: {$productsMap[$productCode]}) = {$quantity}");
+            } elseif ($quantity > 0) {
+                Log::warning("✗ Skipped: {$inputKey} -> productCode not found in mapping");
+            }
+        }
+
+        Log::info("Total retur items to insert: " . count($logItemsToInsert));
+
+        if (!empty($logItemsToInsert)) {
+            ReturnLogItem::insert($logItemsToInsert);
+            Log::info("Retur items inserted successfully");
+        } else {
+            Log::warning("No retur items to insert - all quantities might be 0");
+        }
+        
+        DB::commit();
+        
+        Log::info('=== STORE RETUR SUCCESS ===');
+        
+        return redirect()->route('dse.riwayat_pencatatan', [
+            'tanggal' => Carbon::now()->toDateString(),
+            'tipe' => 'retur'
+        ])->with('success', 'Data retur berhasil disimpan!');
+        
+    } catch (Exception $e) {
+        DB::rollBack();
+        Log::error('Error saving retur: ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
+        return back()->with('error', 'Gagal menyimpan retur: ' . $e->getMessage());
+    }
+}
     
     public function showInputOutlet()
     {
@@ -239,7 +398,6 @@ class DSEInputController extends Controller
     Log::info('=== DSE STORE OUTLET START ===');
     Log::info('Form Data:', $request->all());
     
-    // Fix untuk user info
     $user = Auth::user();
     if ($user) {
         Log::info('User Auth:', [
@@ -286,13 +444,13 @@ class DSEInputController extends Controller
             'required', 
             'image',
             'mimes:jpeg,png,jpg,gif',
-            'max:2048',
+            'max:5120',
         ], 
         'foto_etalase_file' => [
             'required',
             'image',
             'mimes:jpeg,png,jpg,gif',
-            'max:2048',
+            'max:5120',
         ],
     ]);
 
@@ -341,13 +499,14 @@ class DSEInputController extends Controller
         Log::info('=== DSE STORE OUTLET SUCCESS ===');
         return redirect()->route('dse.dashboard')->with('success', 'Data outlet berhasil disimpan!');
 
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         DB::rollBack();
         Log::error('Error storeOutlet: ' . $e->getMessage());
         Log::error('Stack trace: ' . $e->getTraceAsString());
         return back()->with('error', 'Gagal menyimpan data outlet: ' . $e->getMessage())->withInput();
     }
 }
+
 
     public function riwayatPencatatan(Request $request)
     {
@@ -366,22 +525,6 @@ class DSEInputController extends Controller
         } catch (\Exception $e) {
             $tanggalCari = Carbon::today();
         }
-
-        $outletName = 'N/A (Log Tidak Ditemukan)';
-    
-    // Pilih model dasar berdasarkan tipe
-    $logQuery = ($tipe === 'retur') ? ReturnLog::query() : StockLog::query();
-            
-    // Cari log pertama yang sesuai filter tanggal dan DSE, dengan relasi outlet
-    $logWithOutlet = $logQuery
-        ->where('username_id', $dseId)
-        ->whereDate('date', $tanggalCari->toDateString())
-        ->with('outlet:id,name') // Load hanya kolom yang kita butuhkan
-        ->first(); 
-
-    if ($logWithOutlet && $logWithOutlet->outlet) {
-        $outletName = $logWithOutlet->outlet->name;
-    }
         
         $dataToDisplay = [];
         $judulRiwayat = '';
@@ -389,12 +532,14 @@ class DSEInputController extends Controller
         if ($tipe === 'stok') {
             $stockLogs = StockLog::where('username_id', $dseId)
                 ->whereDate('date', $tanggalCari->toDateString())
-                ->with(['items.product'])
+                ->with(['items.product', 'outlet'])
                 ->get();
 
             $detailData = [];
             
             foreach ($stockLogs as $log) {
+                $outletName = $log->outlet ? $log->outlet->name : 'N/A';
+                
                 foreach ($log->items as $item) {
                     if (!$item->product) continue;
 
@@ -409,16 +554,17 @@ class DSEInputController extends Controller
                         $jenis = $productName;
                     }
                     
-                    $key = $productName;
+                    $key = $outletName . '_' . $productName;
                     
                     if (!isset($detailData[$key])) {
                         $detailData[$key] = [
-                            $kategori, 
+                            $outletName,
+                            $kategori,
                             $jenis,
                             $quantity
                         ];
                     } else {
-                        $detailData[$key][2] += $quantity;
+                        $detailData[$key][3] += $quantity;
                     }
                 }
             }
@@ -429,12 +575,14 @@ class DSEInputController extends Controller
         } else if ($tipe === 'retur') {
             $returnLogs = ReturnLog::where('username_id', $dseId)
                 ->whereDate('date', $tanggalCari->toDateString())
-                ->with(['items.product'])
+                ->with(['items.product', 'outlet'])
                 ->get();
 
             $detailData = [];
             
             foreach ($returnLogs as $log) {
+                $outletName = $log->outlet ? $log->outlet->name : 'N/A';
+                
                 foreach ($log->items as $item) {
                     if (!$item->product) continue;
 
@@ -449,16 +597,17 @@ class DSEInputController extends Controller
                         $jenis = $productName;
                     }
                     
-                    $key = $productName;
+                    $key = $outletName . '_' . $productName;
                     
                     if (!isset($detailData[$key])) {
                         $detailData[$key] = [
-                            $kategori, 
+                            $outletName,
+                            $kategori,
                             $jenis,
                             $quantity
                         ];
                     } else {
-                        $detailData[$key][2] += $quantity;
+                        $detailData[$key][3] += $quantity;
                     }
                 }
             }
@@ -469,17 +618,19 @@ class DSEInputController extends Controller
         } else {
             $stockLogs = StockLog::where('username_id', $dseId)
                 ->whereDate('date', $tanggalCari->toDateString())
-                ->with(['items.product'])
+                ->with(['items.product', 'outlet'])
                 ->get();
 
             $returnLogs = ReturnLog::where('username_id', $dseId)
                 ->whereDate('date', $tanggalCari->toDateString())
-                ->with(['items.product'])
+                ->with(['items.product', 'outlet'])
                 ->get();
 
             $detailData = [];
             
             foreach ($stockLogs as $log) {
+                $outletName = $log->outlet ? $log->outlet->name : 'N/A';
+                
                 foreach ($log->items as $item) {
                     if (!$item->product) continue;
 
@@ -494,24 +645,27 @@ class DSEInputController extends Controller
                         $jenis = $productName;
                     }
                     
-                    $key = $productName;
+                    $key = $outletName . '_' . $productName;
                     
                     if (!isset($detailData[$key])) {
                         $detailData[$key] = [
-                            $kategori, 
+                            $outletName,
+                            $kategori,
                             $jenis,
                             $quantity,
                             0,
                             $quantity
                         ];
                     } else {
-                        $detailData[$key][2] += $quantity;
-                        $detailData[$key][4] = $detailData[$key][2] - $detailData[$key][3];
+                        $detailData[$key][3] += $quantity;
+                        $detailData[$key][5] = $detailData[$key][3] - $detailData[$key][4];
                     }
                 }
             }
 
             foreach ($returnLogs as $log) {
+                $outletName = $log->outlet ? $log->outlet->name : 'N/A';
+                
                 foreach ($log->items as $item) {
                     if (!$item->product) continue;
 
@@ -526,19 +680,20 @@ class DSEInputController extends Controller
                         $jenis = $productName;
                     }
                     
-                    $key = $productName;
+                    $key = $outletName . '_' . $productName;
                     
                     if (!isset($detailData[$key])) {
                         $detailData[$key] = [
-                            $kategori, 
+                            $outletName,
+                            $kategori,
                             $jenis,
                             0,
                             $quantity,
                             -$quantity
                         ];
                     } else {
-                        $detailData[$key][3] += $quantity;
-                        $detailData[$key][4] = $detailData[$key][2] - $detailData[$key][3];
+                        $detailData[$key][4] += $quantity;
+                        $detailData[$key][5] = $detailData[$key][3] - $detailData[$key][4];
                     }
                 }
             }
@@ -546,7 +701,7 @@ class DSEInputController extends Controller
             $dataToDisplay = array_values($detailData);
             $judulRiwayat = 'Riwayat Semua';
         }
-
-        return view('dse.riwayat_pencatatan', compact('dataToDisplay', 'dseId', 'tanggalFilter', 'tipe', 'judulRiwayat', 'outletName'));
+        
+        return view('dse.riwayat_pencatatan', compact('dataToDisplay', 'dseId', 'tanggalFilter', 'tipe', 'judulRiwayat'));
     }
 }

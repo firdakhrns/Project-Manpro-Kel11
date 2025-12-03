@@ -15,9 +15,33 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class AdminController extends Controller
 {
+
+    private $productMapping = [
+            '3gb' => 'KP_3GB',
+            '6gb' => 'KP_6GB', 
+            '9gb' => 'KP_9GB',
+            '20gb' => 'KP_20GB',
+
+            '15gb_1h' => 'FI15_1D', 
+            '35gb_5h' => 'FI35_5D', 
+            '5gb_3h' => 'FI5_3D',     
+            '5gb_2h' => 'FI5_2D',    
+            '5gb_5h' => 'FI5_5D', 
+            '7gb_7h' => 'FI7_7D', 
+            '3gb_3h' => 'FI3_3D', 
+            '3gb_1h' => 'FI3_1D', 
+            '15gb_7h' => 'FI15_7D',
+        ];
+    
+    private function getProductsMap()
+    {
+        return Product::whereIn('product_code', array_values($this->productMapping))
+                        ->pluck('id', 'product_code');
+    }
     public function viewStok()
     {
         $stokData = StockLog::with(['user', 'outlet', 'items.product'])
@@ -106,13 +130,13 @@ class AdminController extends Controller
     return view('admin.riwayat_pencatatan', [
         'pivotData' => $pivotData,
         'productHeaders' => $productHeaders,
-        'tanggalFilter' => $tanggal, // Menggunakan $tanggal yang sudah diperbaiki
+        'tanggalFilter' => $tanggal, 
         'tipe' => $tipe,
         'dseList' => $dseList,
         'regions' => $regions,
         'totalDSE' => User::where('role', 'DSE')->count(), 
         'totalOutlets' => Outlet::count(),
-        'validationError' => $validationError, // <-- Mengirim pesan error ke view
+        'validationError' => $validationError, 
     ]);
 }
 
@@ -167,12 +191,19 @@ class AdminController extends Controller
 
     public function storeStok(Request $request)
     {
-        $request->validate([
-            'username_id' => 'required|exists:users,id_dse',
-            'outlet_id' => 'required|exists:outlets,id',
-            'stok.kp.*' => 'nullable|integer|min:0|max:500', 
-            'stok.v.*' => 'nullable|integer|min:0|max:500', 
-        ]);
+        $messages = [
+        'stok.kp.*.max' => 'Jumlah stok Kartu Perdana tidak boleh melebihi :max.',
+        'stok.v.*.max' => 'Jumlah stok Voucher tidak boleh melebihi :max.',
+        'stok.kp.*.min' => 'Jumlah stok harus minimal :min.',
+        'stok.v.*.min' => 'Jumlah stok harus minimal :min.',
+    ];
+    
+    $request->validate([
+        'outlet_id' => 'required|exists:outlets,id',
+        'stok' => 'nullable|array',
+        'stok.kp.*' => 'nullable|integer|min:0|max:500',
+        'stok.v.*' => 'nullable|integer|min:0|max:500',
+    ], $messages);
 
         DB::beginTransaction();
         try {
@@ -231,63 +262,96 @@ class AdminController extends Controller
 
     public function storeRetur(Request $request)
     {
-        $request->validate([
-            'username_id' => 'required|exists:users,id_dse',
-            'outlet_id' => 'required|exists:outlets,id',
-            'retur.kp.*' => 'nullable|integer|min:0|max:500', 
-            'retur.v.*' => 'nullable|integer|min:0|max:500', 
-        ]);
+        $messages = [
+        'retur.kp.*.max' => 'Jumlah retur Kartu Perdana tidak boleh melebihi :max.',
+        'retur.v.*.max' => 'Jumlah retur Voucher tidak boleh melebihi :max.',
+        'retur.kp.*.min' => 'Jumlah retur harus minimal :min.',
+        'retur.v.*.min' => 'Jumlah retur harus minimal :min.',
+    ];
+    
+    $validator = Validator::make($request->all(), [
+        'outlet_id' => 'required|exists:outlets,id',
+        'retur' => 'nullable|array',
+        'retur.kp.*' => 'nullable|integer|min:0|max:500', 
+        'retur.v.*' => 'nullable|integer|min:0|max:500',
+    ], $messages);
+    
+    if ($validator->fails()) {
+        return back()->withErrors($validator)->withInput();
+    }
+    
+    $dseIdTarget = $request->username_id;
+    $outletId = $request->outlet_id;
+    $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
+    $productsMap = $this->getProductsMap();
+    $errors = []; 
+    
+    foreach ($allReturInputs as $inputKey => $returQuantity) {
+        $returQuantity = (int) $returQuantity;
+        if ($returQuantity <= 0) continue;
+    
+        $productCode = $this->productMapping[$inputKey] ?? null;
+        $productId = $productsMap[$productCode] ?? null;
+    
+        if ($productId) {
+        $lastStockItem = StockLogItem::where('product_id', $productId)
+            ->whereHas('stockLog', function($q) use ($dseIdTarget, $outletId) {
+                $q->where('username_id', $dseIdTarget)->where('outlet_id', $outletId); 
+            })
+            ->orderBy('created_at', 'desc')
+            ->first();
+            
+        $stokTersedia = $lastStockItem ? $lastStockItem->quantity : 0;
+        
+        if ($returQuantity > $stokTersedia) {
+            $errors[$inputKey] = "Gagal: Jumlah Retur untuk produk $productCode ($returQuantity) melebihi Stok Terakhir yang tercatat ($stokTersedia). Harap periksa riwayat stok atau input stok terlebih dahulu.";
+        }
+        }
+    }
+    
+    if (!empty($errors)) {
+
+        return back()->withErrors($errors)->withInput();
+    }
 
         DB::beginTransaction();
         try {
             $returnLog = ReturnLog::create([
-                'username_id' => $request->username_id,
+                'username_id' => $dseIdTarget,
                 'outlet_id' => $request->outlet_id,
-                'date' => Carbon::now()->toDateString(),
-                'notes' => $request->notes ?? 'Retur oleh Admin',
-                'status' => 'pending',
+                'date' => now()->toDateString(),
+                'notes' => 'Retur harian',
             ]);
 
-            $productMapping = [
-            '3gb' => 'KP_3GB',
-            '6gb' => 'KP_6GB', 
-            '9gb' => 'KP_9GB',
-            '20gb' => 'KP_20GB',
-
-            '15gb_1h' => 'FI15_1D', 
-            '35gb_5h' => 'FI35_5D', 
-            '5gb_3h' => 'FI5_3D',     
-            '5gb_2h' => 'FI5_2D',    
-            '5gb_5h' => 'FI5_5D', 
-            '7gb_7h' => 'FI7_7D', 
-            '3gb_3h' => 'FI3_3D', 
-            '3gb_1h' => 'FI3_1D', 
-            '15gb_7h' => 'FI15_7D',
-        ];
-
-            $productsMap = Product::whereIn('product_code', array_values($productMapping))
-                                ->pluck('id', 'product_code');
-
-            $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
+            $logItemsToInsert = [];
             $savedItems = 0;
 
             foreach ($allReturInputs as $inputKey => $quantity) {
-                $productCode = $productMapping[$inputKey] ?? null;
+                $productCode = $this->productMapping[$inputKey] ?? null;
                 $quantity = (int) $quantity;
 
                 if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
-                    ReturnLogItem::create([
+                    $logItemsToInsert[] = [
                         'return_log_id' => $returnLog->id,
                         'product_id' => $productsMap[$productCode],
                         'quantity' => $quantity,
-                    ]);
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                     $savedItems++;
                 }
             }
 
+            if (!empty($logItemsToInsert)) {
+                ReturnLogItem::insert($logItemsToInsert);
+            }
+            
             DB::commit();
-            return redirect()->route('admin.riwayat_pencatatan')->with('success', 'Data retur berhasil ditambahkan!');
-
+            return redirect()->route('admin.riwayat_pencatatan', [
+            'tanggal' => Carbon::now()->toDateString(),
+            'tipe' => 'retur'
+            ])->with('success', 'Data retur berhasil disimpan!');
+            
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menyimpan data retur: ' . $e->getMessage())->withInput();
@@ -466,4 +530,25 @@ class AdminController extends Controller
 
         return compact('totalDSE', 'totalOutlets', 'todayStok', 'todayRetur', 'pendingRetur');
     }
+
+    public function getOutletsByDSE(Request $request)
+{
+    $dseId = $request->input('dse_id');
+    
+    // 1. Ambil data DSE untuk mendapatkan region-nya
+    $dseUser = User::where('id_dse', $dseId)->first(['region']);
+
+    if (!$dseUser) {
+        return response()->json([]); // Kembalikan array kosong jika DSE tidak ditemukan
+    }
+
+    $regionTarget = $dseUser->region;
+
+    // 2. Ambil Outlet yang region-nya sama
+    $outlets = Outlet::where('region', $regionTarget)
+                     ->orderBy('name')
+                     ->get(['id', 'name', 'region']);
+
+    return response()->json($outlets);
+}
 }

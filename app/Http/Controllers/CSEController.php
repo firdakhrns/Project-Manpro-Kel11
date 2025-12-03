@@ -17,14 +17,59 @@ use Illuminate\Support\Facades\Storage;
 
 class CSEController extends Controller
 {
-public function viewStok(Request $request)
+
+    // Di CSEController.php
+private function getManagedRegions($userRegion, $userRole)
 {
-    $userRegion = Auth::guard('shared')->user()->region;
+    if ($userRole === 'Manager' && $userRegion === 'Banjarmasin') {
+        return [
+            'Banjarmasin Timur',
+            'Banjarmasin Utara', 
+            'Banjarmasin Selatan',
+            'Banjarmasin Tengah',
+            'Banjarmasin Barat'
+        ];
+    }
+    
+    if (str_contains($userRegion, 'Banjarmasin')) {
+        $subRegions = ['Timur', 'Utara', 'Selatan', 'Tengah', 'Barat'];
+        foreach ($subRegions as $subRegion) {
+            if (str_contains($userRegion, $subRegion)) {
+                return [$userRegion];
+            }
+        }
+        
+        return [
+            'Banjarmasin Timur',
+            'Banjarmasin Utara', 
+            'Banjarmasin Selatan',
+            'Banjarmasin Tengah',
+            'Banjarmasin Barat'
+        ];
+    }
+    
+    // Default
+    return [$userRegion];
+}
+
+    public function viewStok(Request $request)
+{
+    $user = Auth::guard('shared')->user();
+    $userRegion = $user->region;
+    $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
+    
     $startDate = $request->input('start_date');
     $endDate = $request->input('end_date');
     $dseId = $request->input('dse_id');
 
     $isFiltered = $startDate || $endDate || $dseId;
+
+    // Set default jika tidak ada filter
+    if (!$isFiltered) {
+        $startDate = Carbon::today()->subDays(7)->toDateString();
+        $endDate = Carbon::today()->toDateString();
+        $isFiltered = true;
+    }
 
     if ($startDate && $endDate) {
         try {
@@ -32,13 +77,11 @@ public function viewStok(Request $request)
             $endCarbon = Carbon::parse($endDate);
 
             if ($startCarbon->greaterThan($endCarbon)) {
-                $isFiltered = false; // Batalkan query
                 return redirect()->back()->withErrors([
-                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
                 ])->withInput();
             }
         } catch (\Exception $e) {
-            $isFiltered = false; // Batalkan query
             return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
     }
@@ -49,67 +92,99 @@ public function viewStok(Request $request)
                         ->pluck('product_name')
                         ->toArray();
     
-    $dseList = User::where('role', 'DSE')->where('region', $userRegion)->get(); 
+    // PERBAIKAN: Query DSE berdasarkan filter
+    $dseQuery = User::where('role', 'DSE')
+                   ->whereIn('region', $regionsToSearch);
+    
+    if ($dseId) {
+        // Jika filter DSE dipilih, hanya ambil DSE tersebut
+        $dseQuery->where('id_dse', $dseId);
+    }
+    
+    $dseList = $dseQuery->select('id_dse', 'name')
+                       ->get(); 
 
-    if ($isFiltered) {
-        // 1. QUERY DATA
-        $query = StockLog::with(['user', 'outlet', 'items.product'])
-                        ->whereHas('user', function($query) use ($userRegion) {
-                            $query->where('region', $userRegion);
-                        });
+    // QUERY DATA dengan kondisi yang benar
+    $query = StockLog::with(['user', 'outlet', 'items.product'])
+                    ->whereHas('user', function($query) use ($regionsToSearch) {
+                        $query->whereIn('region', $regionsToSearch);
+                    });
 
-        if ($startDate) {
-            $query->whereDate('date', '>=', $startDate);
-        }
-        if ($endDate) {
-            $query->whereDate('date', '<=', $endDate);
-        }
-        if ($dseId) {
-            $query->where('username_id', $dseId);
-        }
+    if ($startDate) {
+        $query->whereDate('date', '>=', $startDate);
+    }
+    if ($endDate) {
+        $query->whereDate('date', '<=', $endDate);
+    }
+    if ($dseId) {
+        $query->where('username_id', $dseId);
+    }
 
-        $stokData = $query->orderBy('date', 'desc')->get();
+    $stokData = $query->orderBy('date', 'desc')->get();
 
+    $initialProductCounts = array_fill_keys($productHeaders, 0);
+
+    // PERBAIKAN: Inisialisasi pivot data hanya untuk DSE yang akan ditampilkan
+    foreach ($dseList as $dse) {
+        $pivotData[$dse->id_dse] = [
+            'dse_name' => $dse->name ?? 'Unknown',
+            'counts' => $initialProductCounts
+        ];
+    }
+
+    // Proses data stok
+    foreach ($stokData as $log) {
+        $dseIdLog = $log->username_id;
         
-        $initialProductCounts = array_fill_keys($productHeaders, 0);
-
-        foreach ($dseList as $dse) {
-            $pivotData[$dse->id_dse] = $initialProductCounts;
+        // Inisialisasi jika DSE belum ada (untuk jaga-jaga)
+        if (!isset($pivotData[$dseIdLog])) {
+            $pivotData[$dseIdLog] = [
+                'dse_name' => $log->user->name ?? 'Unknown',
+                'counts' => $initialProductCounts
+            ];
         }
         
-        foreach ($stokData as $log) {
-            $dseId = $log->username_id;
-            
-            // Inisialisasi jika DSE belum ada
-            if (!isset($pivotData[$dseId])) {
-                $pivotData[$dseId] = $initialProductCounts;
-            }
-            
-            foreach ($log->items as $item) {
-                $productName = $item->product->product_name ?? 'Produk Tidak Diketahui'; 
-        
-                if (isset($pivotData[$dseId][$productName])) {
-                    $pivotData[$dseId][$productName] += $item->quantity;
-                }
+        foreach ($log->items as $item) {
+            $productName = $item->product->product_name ?? 'Produk Tidak Diketahui';
+    
+            if (isset($pivotData[$dseIdLog]['counts'][$productName])) {
+                $pivotData[$dseIdLog]['counts'][$productName] += $item->quantity;
             }
         }
     }
 
-    
-    return view('cse.view_stok', compact('stokData', 'pivotData', 'productHeaders', 'dseList', 'isFiltered'));
+    return view('cse.view_stok', compact(
+        'stokData', 
+        'pivotData', 
+        'productHeaders', 
+        'dseList', 
+        'isFiltered',
+        'startDate',
+        'endDate',
+        'dseId',
+        'userRegion',
+        'regionsToSearch'
+    ));
 }
 
-/**
- * View retur semua DSE di region CSE dengan filter
- */
-public function viewRetur(Request $request)
+    public function viewRetur(Request $request)
 {
-    $userRegion = Auth::guard('shared')->user()->region;
+    $user = Auth::guard('shared')->user();
+    $userRegion = $user->region;
+    $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
+    
     $startDate = $request->input('start_date'); 
     $endDate = $request->input('end_date'); 
-    $dseId = $request->input('dse_id'); // Pastikan Anda juga menggunakan filter DSE
+    $dseId = $request->input('dse_id');
 
     $isFiltered = $startDate || $endDate || $dseId;
+    
+    // Set default jika tidak ada filter
+    if (!$isFiltered) {
+        $startDate = Carbon::today()->subDays(7)->toDateString();
+        $endDate = Carbon::today()->toDateString();
+        $isFiltered = true;
+    }
     
     if ($startDate && $endDate) {
         try {
@@ -117,19 +192,15 @@ public function viewRetur(Request $request)
             $endCarbon = Carbon::parse($endDate);
 
             if ($startCarbon->greaterThan($endCarbon)) {
-                $isFiltered = false; // Batalkan query jika validasi gagal
                 return redirect()->back()->withErrors([
-                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
                 ])->withInput();
             }
         } catch (\Exception $e) {
-            $isFiltered = false; // Batalkan query jika format salah
             return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
     }
-    // END VALIDASI TANGGAL
 
-    // Inisialisasi variabel hasil (default kosong)
     $productHeaders = \App\Models\Product::orderBy('product_name')
                         ->pluck('product_name')
                         ->toArray();
@@ -137,53 +208,76 @@ public function viewRetur(Request $request)
     $returData = collect();
     $pivotData = [];
 
-    $dseList = User::where('role', 'DSE')
-                    ->where('region', $userRegion)
-                    ->get();
+    // PERBAIKAN: Query DSE berdasarkan filter
+    $dseQuery = User::where('role', 'DSE')
+                   ->whereIn('region', $regionsToSearch);
     
-    if ($isFiltered) {
-        $query = ReturnLog::with(['user', 'outlet', 'items.product'])
-                         ->whereHas('user', function($query) use ($userRegion) {
-                             $query->where('region', $userRegion);
-                         });
-        
-        if ($startDate) {
-            $query->whereDate('date', '>=', $startDate);
-        }
-        if ($endDate) {
-            $query->whereDate('date', '<=', $endDate);
-        }
+    if ($dseId) {
+        // Jika filter DSE dipilih, hanya ambil DSE tersebut
+        $dseQuery->where('id_dse', $dseId);
+    }
+    
+    $dseList = $dseQuery->select('id_dse', 'name')
+                       ->get();
+    
+    $query = ReturnLog::with(['user', 'outlet', 'items.product'])
+                     ->whereHas('user', function($query) use ($regionsToSearch) {
+                         $query->whereIn('region', $regionsToSearch);
+                     });
+    
+    if ($startDate) {
+        $query->whereDate('date', '>=', $startDate);
+    }
+    if ($endDate) {
+        $query->whereDate('date', '<=', $endDate);
+    }
+    if ($dseId) {
+        $query->where('username_id', $dseId);
+    }
 
-        if ($dseId) {
-            $query->where('username_id', $dseId);
-        }
+    $returData = $query->orderBy('date', 'desc')->get();
 
-        $returData = $query->orderBy('date', 'desc')->get();
-        
-        $initialProductCounts = array_fill_keys($productHeaders, 0);
+    $initialProductCounts = array_fill_keys($productHeaders, 0);
 
-        foreach ($dseList as $dse) {
-            $pivotData[$dse->id_dse] = $initialProductCounts;
+    // PERBAIKAN: Inisialisasi pivot data hanya untuk DSE yang akan ditampilkan
+    foreach ($dseList as $dse) {
+        $pivotData[$dse->id_dse] = [
+            'dse_name' => $dse->name ?? 'Unknown',
+            'counts' => $initialProductCounts
+        ];
+    }
+    
+    foreach ($returData as $log) {
+        $dseIdLog = $log->username_id;
+        
+        if (!isset($pivotData[$dseIdLog])) {
+            $pivotData[$dseIdLog] = [
+                'dse_name' => $log->user->name ?? 'Unknown',
+                'counts' => $initialProductCounts
+            ];
         }
         
-        foreach ($returData as $log) {
-            $dseId = $log->username_id;
+        foreach ($log->items as $item) {
+            $productName = $item->product->product_name ?? null;
             
-            if (!isset($pivotData[$dseId])) {
-                $pivotData[$dseId] = $initialProductCounts; 
-            }
-            
-            foreach ($log->items as $item) {
-                $productName = $item->product->product_name ?? null;
-                
-                if ($productName && isset($pivotData[$dseId][$productName])) {
-                    $pivotData[$dseId][$productName] += $item->quantity;
-                }
+            if ($productName && isset($pivotData[$dseIdLog]['counts'][$productName])) {
+                $pivotData[$dseIdLog]['counts'][$productName] += $item->quantity;
             }
         }
     }
     
-    return view('cse.view_retur', compact('returData', 'pivotData', 'productHeaders', 'dseList', 'isFiltered'));
+    return view('cse.view_retur', compact(
+        'returData', 
+        'pivotData', 
+        'productHeaders', 
+        'dseList', 
+        'isFiltered',
+        'startDate',
+        'endDate',
+        'dseId',
+        'userRegion',
+        'regionsToSearch'
+    ));
 }
 
     /**
@@ -202,57 +296,64 @@ public function viewRetur(Request $request)
      * View performa DSE di region CSE
      */
     public function viewPerforma(Request $request)
-{
-    $userRegion = Auth::guard('shared')->user()->region;
-    
-    $startDate = $request->input('start_date');
-    $endDate = $request->input('end_date');
-    
-    $isFiltered = $startDate && $endDate;
-
-    $queryStartDate = $startDate ? $startDate : Carbon::today()->subDays(30)->toDateString();
-    $queryEndDate = $endDate ? $endDate : Carbon::today()->toDateString();
-
-    if ($startDate && $endDate) {
-        try {
-            $startCarbon = Carbon::parse($startDate);
-            $endCarbon = Carbon::parse($endDate);
-
-            if ($startCarbon->greaterThan($endCarbon)) {
-                return redirect()->back()->withErrors([
-                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
-                ])->withInput();
-            }
-        } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
-        }
-    }
-    
-    $performanceData = collect(); 
-
-    if ($isFiltered) {
+    {
+        $user = Auth::guard('shared')->user();
+        $userRegion = $user->region; // TAMBAHKAN INI
+        $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
         
-        // 1. HITUNG TOTAL STOK MASUK (via Subquery)
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        
+        $isFiltered = $startDate && $endDate;
+
+        // Set default jika tidak ada filter
+        if (!$isFiltered) {
+            $startDate = Carbon::today()->subDays(30)->toDateString();
+            $endDate = Carbon::today()->toDateString();
+            $isFiltered = true;
+        }
+
+        if ($startDate && $endDate) {
+            try {
+                $startCarbon = Carbon::parse($startDate);
+                $endCarbon = Carbon::parse($endDate);
+
+                if ($startCarbon->greaterThan($endCarbon)) {
+                    return redirect()->back()->withErrors([
+                        'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
+                    ])->withInput();
+                }
+            } catch (\Exception $e) {
+                return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+            }
+        }
+        
+        // 1. HITUNG TOTAL STOK MASUK - PERBAIKAN: gunakan $regionsToSearch
         $stockTotals = DB::table('stock_logs as sl')
             ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
+            ->join('users as u', 'sl.username_id', '=', 'u.id_dse')
             ->select('sl.username_id as dse_id', DB::raw('SUM(sli.quantity) as total_stok_masuk'))
-            ->whereDate('sl.date', '>=', $queryStartDate)
-            ->whereDate('sl.date', '<=', $queryEndDate)
+            ->whereDate('sl.date', '>=', $startDate)
+            ->whereDate('sl.date', '<=', $endDate)
+            ->whereIn('u.region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->where('u.role', 'DSE')
             ->groupBy('sl.username_id');
 
-        // 2. HITUNG TOTAL RETUR (via Subquery)
+        // 2. HITUNG TOTAL RETUR - PERBAIKAN: gunakan $regionsToSearch
         $returnTotals = DB::table('return_logs as rl')
             ->join('return_log_items as rli', 'rl.id', '=', 'rli.return_log_id')
+            ->join('users as u', 'rl.username_id', '=', 'u.id_dse')
             ->select('rl.username_id as dse_id', DB::raw('SUM(rli.quantity) as total_retur'))
-            ->whereDate('rl.date', '>=', $queryStartDate)
-            ->whereDate('rl.date', '<=', $queryEndDate)
+            ->whereDate('rl.date', '>=', $startDate)
+            ->whereDate('rl.date', '<=', $endDate)
+            ->whereIn('u.region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->where('u.role', 'DSE')
             ->groupBy('rl.username_id');
             
-        // 3. GABUNGKAN DENGAN USER LIST (Outer Join)
-        // Kita gunakan user list regional sebagai dasar agar semua DSE muncul (termasuk yang 0 stok/retur)
+        // 3. GABUNGKAN DATA - PERBAIKAN: gunakan $regionsToSearch
         $performanceData = User::where('role', 'DSE')
-            ->where('region', $userRegion)
-            ->select('users.id_dse') // Hanya pilih ID DSE
+            ->whereIn('region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->select('users.id_dse')
             ->leftJoinSub($stockTotals, 'stock_t', function ($join) {
                 $join->on('users.id_dse', '=', 'stock_t.dse_id');
             })
@@ -264,36 +365,45 @@ public function viewRetur(Request $request)
                 DB::raw('COALESCE(stock_t.total_stok_masuk, 0) as total_stok_masuk'),
                 DB::raw('COALESCE(return_t.total_retur, 0) as total_retur')
             )
+            ->orderBy('users.id_dse')
             ->get();
+
+        Log::info('Performance query executed:', [
+            'user_region' => $userRegion,
+            'regions_to_search' => $regionsToSearch,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'dse_count' => $performanceData->count()
+        ]);
+
+        // 4. Hitung Rasio Retur
+        $finalData = $performanceData->map(function ($item) {
+            $stokMasuk = (int) $item->total_stok_masuk;
+            $totalRetur = (int) $item->total_retur;
+            $stokKeluar = $stokMasuk - $totalRetur; 
+            
+            $returnRate = $stokMasuk > 0 
+                          ? ($totalRetur / $stokMasuk) * 100
+                          : 0;
+
+            return [
+                'dse_id' => $item->dse_id,
+                'total_stok_masuk' => $stokMasuk,
+                'total_retur' => $totalRetur,
+                'stok_keluar_netto' => $stokKeluar,
+                'return_rate' => round($returnRate, 2)
+            ];
+        })->sortBy('return_rate')->values()->all();
+
+        return view('cse.view_performa', [
+            'performaData' => $finalData,
+            'startDate' => $startDate, 
+            'endDate' => $endDate, 
+            'userRegion' => $userRegion,
+            'regionsToSearch' => $regionsToSearch, // TAMBAHKAN INI
+            'isFiltered' => $isFiltered, 
+        ]);
     }
-
-    // 4. Hitung Rasio Retur dan Finalisasi Data
-    $finalData = $performanceData->map(function ($item) {
-        $stokMasuk = (int) $item->total_stok_masuk;
-        $totalRetur = (int) $item->total_retur;
-        $stokKeluar = $stokMasuk - $totalRetur; 
-        
-        $returnRate = $stokMasuk > 0 
-                      ? ($totalRetur / $stokMasuk) * 100
-                      : 0; // Hindari pembagian dengan nol
-
-        return [
-            'dse_id' => $item->dse_id,
-            'total_stok_masuk' => $stokMasuk,
-            'total_retur' => $totalRetur,
-            'stok_keluar_netto' => $stokKeluar,
-            'return_rate' => round($returnRate, 2)
-        ];
-    })->sortBy('return_rate')->values()->all();
-
-    return view('cse.view_performa', [
-        'performaData' => $finalData,
-        'startDate' => $queryStartDate, 
-        'endDate' => $queryEndDate, 
-        'userRegion' => $userRegion,
-        'isFiltered' => $isFiltered, 
-    ]);
-}
 
     public function editOutlet($id)
     {
@@ -409,72 +519,154 @@ public function viewRetur(Request $request)
      */
     public function showInputKritikSaran()
     {
-        $userRegion = Auth::guard('shared')->user()->region;
+        $user = Auth::guard('shared')->user();
+        $userRegion = $user->region;
+        $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
         
+        // Pastikan mengambil DSE dengan kolom yang benar
         $dseList = User::where('role', 'DSE')
-                      ->where('region', $userRegion)
+                      ->whereIn('region', $regionsToSearch) // PERBAIKAN: whereIn
+                      ->select('id_dse', 'name', 'region') // Tambah region
+                      ->orderBy('region')
+                      ->orderBy('id_dse')
                       ->get();
+        
+        Log::info('DSE List for Kritik Saran:', [
+            'cse_region' => $userRegion,
+            'regions_searched' => $regionsToSearch,
+            'dse_count' => $dseList->count(),
+            'dses' => $dseList->pluck('id_dse')->toArray()
+        ]);
         
         return view('cse.input_kritik_saran', compact('dseList'));
     }
 
-    /**
-     * Menyimpan kritik & saran (POST method)
-     */
-    public function storeKritikSaran(Request $request)
-    {
-        $request->validate([
-            'dse_target' => 'required|string',
-            'jenis_feedback' => 'required|string|in:Kritik,Saran',
-            'feedback_text' => 'required|string|min:10|max:1000',
-        ]);
+public function storeKritikSaran(Request $request)
+{
+    $request->validate([
+        'dse_target' => [
+            'required',
+            'string',
+            function ($attribute, $value, $fail) {
+                // Validasi bahwa DSE target ada di database
+                $dseExists = User::where('id_dse', $value)
+                               ->where('role', 'DSE')
+                               ->exists();
+                if (!$dseExists) {
+                    $fail('DSE target tidak valid.');
+                }
+            }
+        ],
+        'jenis_feedback' => 'required|string|in:Kritik,Saran',
+        'feedback_text' => 'required|string|min:10|max:1000',
+    ]);
 
-        // Simpan ke database
-        Feedbacks::create([
-            'cse_id' => Auth::guard('shared')->user()->username,
-            'dse_target' => $request->dse_target,
-            'type' => strtolower($request->jenis_feedback),
-            'message' => $request->feedback_text,
-            'is_urgent' => false,
-        ]);
+    // Simpan ke database
+    Feedbacks::create([
+        'cse_id' => Auth::guard('shared')->user()->username ?? Auth::guard('shared')->user()->id_dse,
+        'dse_target' => $request->dse_target,
+        'type' => strtolower($request->jenis_feedback),
+        'message' => $request->feedback_text,
+        'is_urgent' => false,
+        'created_at' => now(),
+    ]);
 
-        Log::info('Feedback dari CSE', [
-            'cse' => Auth::guard('shared')->user()->username,
-            'dse_target' => $request->dse_target,
-            'type' => $request->jenis_feedback,
-            'message' => $request->feedback_text
-        ]);
+    Log::info('Feedback dari CSE', [
+        'cse' => Auth::guard('shared')->user()->username,
+        'dse_target' => $request->dse_target,
+        'type' => $request->jenis_feedback,
+        'message' => $request->feedback_text
+    ]);
 
-        return redirect()->route('cse.kritik_saran')
-                         ->with('success', 'Kritik dan saran berhasil dikirim!');
-    }
+    return redirect()->route('cse.kritik_saran')
+                     ->with('success', 'Kritik dan saran berhasil dikirim!');
+}
 
     public function showHasilKritikSaran(Request $request)
-{
-    $userRegion = Auth::guard('shared')->user()->region;
-    $startDate = $request->input('start_date');
-    $endDate = $request->input('end_date');
+    {
+        $user = Auth::guard('shared')->user();
+        $userRegion = $user->region;
+        $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
+        
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
 
-    if ($startDate && $endDate) {
-        try {
-            $startCarbon = Carbon::parse($startDate);
-            $endCarbon = Carbon::parse($endDate);
-
-            if ($startCarbon->greaterThan($endCarbon)) {
-                return redirect()->back()->withErrors([
-                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai". Harap periksa filter Anda.'
-                ])->withInput();
-            }
-        } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+        $isFiltered = $startDate || $endDate;
+        
+        // Set default jika tidak ada filter
+        if (!$isFiltered) {
+            $startDate = Carbon::today()->subDays(30)->toDateString();
+            $endDate = Carbon::today()->toDateString();
+            $isFiltered = true;
         }
+
+        if ($startDate && $endDate) {
+            try {
+                $startCarbon = Carbon::parse($startDate);
+                $endCarbon = Carbon::parse($endDate);
+
+                if ($startCarbon->greaterThan($endCarbon)) {
+                    return redirect()->back()->withErrors([
+                        'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
+                    ])->withInput();
+                }
+            } catch (\Exception $e) {
+                return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+            }
+        }
+        
+        $query = Feedbacks::whereNotNull('cse_id')
+                         ->whereHas('dseTarget', function($q) use ($regionsToSearch) {
+                             $q->whereIn('region', $regionsToSearch); // PERBAIKAN: whereIn
+                         })
+                         ->with(['dseTarget:id_dse,name'])
+                         ->orderBy('created_at', 'desc');
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        $feedbackData = $query->get();
+
+        Log::info('Feedback query executed:', [
+            'user_region' => $userRegion,
+            'regions_to_search' => $regionsToSearch,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'records_found' => $feedbackData->count()
+        ]);
+
+        return view('cse.hasil_kritik_saran', compact(
+            'feedbackData',
+            'startDate',
+            'endDate',
+            'isFiltered',
+            'userRegion',
+            'regionsToSearch' // TAMBAHKAN INI
+        ));
     }
+
+    /**
+     * Export PDF Kritik Saran
+     */
+    public function exportKritikSaranPDF(Request $request)
+{
+    $user = Auth::guard('shared')->user();
+    $userRegion = $user->region;
+    $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
     
-    $query = Feedbacks::where('cse_id', '!=', null) 
-                 ->whereHas('dseTarget', function($q) use ($userRegion) {
-                     $q->where('region', $userRegion);
-                 })
-                 ->orderBy('created_at', 'desc');
+    // Gunakan parameter dari query string
+    $startDate = $request->query('start_date');
+    $endDate = $request->query('end_date');
+    
+    $query = Feedbacks::whereNotNull('cse_id')
+                     ->whereHas('dseTarget', function($q) use ($regionsToSearch) {
+                         $q->whereIn('region', $regionsToSearch);
+                     })
+                     ->orderBy('created_at', 'desc');
 
     if ($startDate) {
         $query->whereDate('created_at', '>=', $startDate);
@@ -482,32 +674,6 @@ public function viewRetur(Request $request)
     if ($endDate) {
         $query->whereDate('created_at', '<=', $endDate);
     }
-
-    $feedbackData = $query->get();
-
-    return view('cse.hasil_kritik_saran', compact('feedbackData'));
-}
-
-    /**
-     * Export PDF Kritik Saran
-     */
-    public function exportKritikSaranPDF(Request $request)
-    {
-        $userRegion = Auth::guard('shared')->user()->region;
-    
-    $query = Feedbacks::where('cse_id', '!=', null) 
-                     ->whereHas('dseTarget', function($q) use ($userRegion) {
-                         $q->where('region', $userRegion);
-                     })
-                     ->orderBy('created_at', 'desc');
-
-    if ($request->has('start_date') && $request->start_date) {
-        $query->whereDate('created_at', '>=', $request->start_date);
-    }
-    if ($request->has('end_date') && $request->end_date) {
-        $query->whereDate('created_at', '<=', $request->end_date);
-    }
-    
     
     $kritikSaran = $query->get();
     
@@ -519,7 +685,7 @@ public function viewRetur(Request $request)
     
     $filename = 'kritik-saran-' . $userRegion . '-' . date('Y-m-d') . '.pdf';
     return $pdf->download($filename);
-    }
+}
 
     // Di CSEController
     public function exportOutletPdf(Request $request)

@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; --gray-light: #f8f8f8; }
-        /* ... (CSS Styling tetap sama) ... */
         body { font-family: 'Inter', sans-serif; background-color: var(--im3-yellow); position: relative; }
         body::before { content: ''; position: fixed; top: 0; right: 0; width: 300px; height: 300px; background-color: var(--im3-red); border-radius: 50%; transform: translate(50%, -50%); z-index: 0; }
         body::after { content: ''; position: fixed; bottom: 0; left: 0; width: 400px; height: 400px; background-color: var(--im3-red); border-radius: 50%; transform: translate(-50%, 50%); z-index: 0; }
@@ -26,36 +25,28 @@
 </head>
 <body>
     <div class="container-card w-full">
-        
         <a href="{{ route('cse.dashboard') }}" class="back-button-circle">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
         </a>
 
         <h1 class="text-3xl font-extrabold text-center mb-2">Data Hasil Performa DSE</h1>
         <p class="text-gray-500 text-center mb-8">Evaluasi Berdasarkan Rasio Retur Regional</p>
 
-         @if ($errors->any())
-    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg p-4">
-        <ul class="list-disc list-inside space-y-1">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-
-        {{-- FORM FILTER PERIODE --}}
         <form method="GET" action="{{ route('cse.view_performa') }}" class="mb-8 p-6 border rounded-lg bg-gray-100">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 
                 <div class="flex flex-col">
                     <label for="start_date" class="font-semibold text-gray-700 mb-1">Dari Tanggal:</label>
-                    <input type="date" id="start_date" name="start_date" class="filter-input" value="{{ $startDate }}">
+                    <input type="date" id="start_date" name="start_date" class="filter-input" 
+                           value="{{ $startDate ?? \Carbon\Carbon::today()->subDays(30)->toDateString() }}">
                 </div>
                 
                 <div class="flex flex-col">
                     <label for="end_date" class="font-semibold text-gray-700 mb-1">Sampai Tanggal:</label>
-                    <input type="date" id="end_date" name="end_date" class="filter-input" value="{{ $endDate }}">
+                    <input type="date" id="end_date" name="end_date" class="filter-input" 
+                           value="{{ $endDate ?? \Carbon\Carbon::today()->toDateString() }}">
                 </div>
                 
                 <div class="md:col-span-2 mt-2 md:mt-0">
@@ -64,7 +55,7 @@
             </div>
         </form>
 
-        {{-- CONTAINER KONTEN (HANYA MUNCUL JIKA DATA SUDAH DI-FILTER) --}}
+        {{-- CONTAINER KONTEN --}}
         @if ($isFiltered ?? false)
             {{-- KARTU METRIK RINGKASAN --}}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -78,7 +69,7 @@
 
                 {{-- Kartu Rata-Rata Retur Regional --}}
                 @php 
-                    $avgRate = collect($performaData)->avg('return_rate');
+                    $avgRate = collect($performaData)->avg('return_rate') ?? 0;
                 @endphp
                 <div class="metric-card">
                     <p class="text-gray-700 font-bold text-sm mb-2">Rata-rata Retur Regional</p>
@@ -90,7 +81,13 @@
                 <div class="metric-card">
                     <p class="text-gray-700 font-bold text-sm mb-2">DSE Tercakup</p>
                     <h3 class="text-2xl font-extrabold text-gray-800">{{ count($performaData) }}</h3>
-                    <p class="text-sm text-gray-600 mt-1">Total DSE di region {{ $userRegion }}</p>
+                    <p class="text-sm text-gray-600 mt-1">Total DSE di 
+                        @if(isset($regionsToSearch) && count($regionsToSearch) > 1)
+                            semua wilayah Banjarmasin
+                        @else
+                            region {{ $userRegion }}
+                        @endif
+                    </p>
                 </div>
             </div>
 
@@ -130,10 +127,19 @@
             </div>
 
         @else
-            {{-- Pesan Awal Sebelum Filter Diterapkan --}}
+            <!-- Form filter lebih jelas -->
             <div class="text-center py-10 bg-gray-50 border rounded-lg">
-                <p class="text-gray-600 font-semibold text-lg">Silakan tentukan periode Tanggal Mulai dan Sampai untuk melihat hasil performa DSE di regional Anda.</p>
-                <p class="text-sm text-gray-500 mt-2">Default: Data 30 hari terakhir.</p>
+                <p class="text-gray-600 font-semibold text-lg mb-4">Silakan tentukan periode untuk melihat hasil performa</p>
+                
+                <!-- Form inline filter -->
+                <form method="GET" action="{{ route('cse.view_performa') }}" class="inline-flex gap-2">
+                    <input type="date" name="start_date" class="filter-input" 
+                           value="{{ \Carbon\Carbon::today()->subDays(30)->toDateString() }}">
+                    <span class="self-center">s.d.</span>
+                    <input type="date" name="end_date" class="filter-input" 
+                           value="{{ \Carbon\Carbon::today()->toDateString() }}">
+                    <button type="submit" class="filter-button-red">Tampilkan Performa</button>
+                </form>
             </div>
         @endif
         

@@ -76,6 +76,7 @@ Route::middleware(['auth:shared'])->group(function () {
     Route::get('/outlet-pdf', [AdminController::class, 'exportOutletPdf'])->name('admin.export.outlet_pdf');
     Route::get('/outlet/{id}/detail', [AdminController::class, 'showOutletDetail'])->name('admin.outlet.detail');
     Route::get('/outlet/detail/{id}/pdf', [AdminController::class, 'exportOutletDetailPdf'])->name('admin.export.outlet_detail_pdf');
+    Route::get('/get-outlets-by-dse', [AdminController::class, 'getOutletsByDSE'])->name('admin.get_outlets_by_dse');
 });
     
     // Route khusus CSE

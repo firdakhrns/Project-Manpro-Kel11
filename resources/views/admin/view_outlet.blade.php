@@ -226,7 +226,6 @@
     </div>
 
     <script>
-        // JavaScript untuk konfirmasi hapus
         function confirmDelete(outletName) {
             return confirm(`Apakah Anda yakin ingin menghapus outlet ${outletName}?`);
         }

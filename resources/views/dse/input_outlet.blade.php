@@ -115,28 +115,25 @@
         @endif
 
         @if(session('error'))
-<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Error!</strong>
-    <span class="block sm:inline">{{ session('error') }}</span>
-</div>
-@endif
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+                <strong class="font-bold">Error!</strong>
+                <span class="block sm:inline">{{ session('error') }}</span>
+            </div>
+        @endif
 
-@if ($errors->any())
-    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-        <strong class="font-bold">Gagal Validasi!</strong>
-        <ul class="list-disc list-inside space-y-1">
+        @if ($errors->any())
+            <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                <strong class="font-bold">Gagal Validasi!</strong>
+                <ul class="list-disc list-inside space-y-1">
             @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
             @endforeach
-        </ul>
-    </div>
-@endif
+                </ul>
+            </div>
+        @endif
 
         <form id="outletForm" action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
-            {{-- Hapus duplikasi @csrf yang ada di kode lama --}}
-            {{-- Hapus duplikasi tag <form> yang ada di kode lama --}}
-
             {{-- <input type="hidden" name="tanggal_input" value="<?php echo date('Y-m-d'); ?>"> --}}
 
             <div class="grid grid-cols-3 gap-x-12 gap-y-6">
@@ -206,7 +203,6 @@
 
         <script>
             document.addEventListener('DOMContentLoaded', function() {
-                // Definisikan semua elemen di dalam scope ini
                 const fileInputDepan = document.getElementById('tampak_depan_outlet_file');
                 const fileInputEtalase = document.getElementById('foto_etalase_file');
                 const submitButton = document.getElementById('submitButton');
@@ -218,7 +214,6 @@
                     inputElement.addEventListener('change', function() {
                         if (this.files.length > 0) {
                             const fileName = this.files[0].name;
-                            // Tampilkan nama file yang dipilih dengan icon centang
                             displayElement.innerHTML = `
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -226,7 +221,6 @@
                                 <span class="text-green-600 font-medium truncate">${fileName}</span>
                             `;
                         } else {
-                            // Kembalikan ke tampilan default jika file dibatalkan
                             displayElement.innerHTML = `
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -240,28 +234,22 @@
                 updateFileNameDisplay(fileInputDepan, 'filename_depan');
                 updateFileNameDisplay(fileInputEtalase, 'filename_etalase');
                 
-                // Event Listener Submit
                 submitButton.addEventListener('click', function(e) {
                     
-                    // 1. Validasi Foto Depan
                     if (fileInputDepan.files.length === 0) {
-                        alert("❗ GAGAL SUBMIT: Harap unggah foto 'Tampak Depan Outlet' terlebih dahulu.");
+                        alert("GAGAL SUBMIT: Harap unggah foto 'Tampak Depan Outlet' terlebih dahulu.");
                         return; 
                     }
 
-                    // 2. Validasi Foto Etalase
                     if (fileInputEtalase.files.length === 0) {
-                        alert("❗ GAGAL SUBMIT: Harap unggah foto 'Foto Etalase' terlebih dahulu.");
+                        alert("GAGAL SUBMIT: Harap unggah foto 'Foto Etalase' terlebih dahulu.");
                         return;
                     }
 
-                    // 3. Validasi HTML5 untuk field required lainnya
                     if (!form.reportValidity()) {
-                        // reportValidity akan menampilkan pesan error bawaan browser untuk field required non-file
                         return;
                     }
 
-                    // Jika semua validasi lolos, lakukan submit
                     form.submit();
                 });
             });

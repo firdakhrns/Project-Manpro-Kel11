@@ -69,7 +69,7 @@ class DatabaseSeeder extends Seeder
                 'id_dse' => 'CSOB-BJM1',
                 'password' => Hash::make('dsel1'),
                 'role' => 'DSE',
-                'region' => 'Banjarmasin',
+                'region' => 'Banjarmasin Utara',
                 'created_at' => $now,
                 'updated_at' => $now
             ],
@@ -79,7 +79,7 @@ class DatabaseSeeder extends Seeder
                 'id_dse' => 'CSOB-BJM2',
                 'password' => Hash::make('dsel2'),
                 'role' => 'DSE',
-                'region' => 'Banjarmasin',
+                'region' => 'Banjarmasin timur',
                 'created_at' => $now,
                 'updated_at' => $now
             ],
@@ -89,7 +89,7 @@ class DatabaseSeeder extends Seeder
                 'id_dse' => 'CSOB-BJM3',
                 'password' => Hash::make('dsel3'),
                 'role' => 'DSE',
-                'region' => 'Banjarmasin',
+                'region' => 'Banjarmasin Barat',
                 'created_at' => $now,
                 'updated_at' => $now
             ],
@@ -99,7 +99,7 @@ class DatabaseSeeder extends Seeder
                 'id_dse' => 'CSOB-BJM4',
                 'password' => Hash::make('dsel4'),
                 'role' => 'DSE',
-                'region' => 'Banjarmasin',
+                'region' => 'Banjarmasin tengah',
                 'created_at' => $now,
                 'updated_at' => $now
             ],
@@ -109,7 +109,7 @@ class DatabaseSeeder extends Seeder
                 'id_dse' => 'CSOB-BJM5',
                 'password' => Hash::make('dsel5'),
                 'role' => 'DSE',
-                'region' => 'Banjarmasin',
+                'region' => 'Banjarmasin Selatan',
                 'created_at' => $now,
                 'updated_at' => $now
             ],

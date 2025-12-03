@@ -83,38 +83,16 @@
     </style>
 </head>
 <body class="flex items-start justify-center min-h-screen p-4">
-    <div class="bg-white p-10 rounded-2xl shadow-xl container">  
+    <div class="bg-white p-10 rounded-2xl shadow-xl container">
+        
         <a href="{{ route('dse.dashboard') }}" class="back-button">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
         </a>
+
         <div class="header-content">
             <h1 class="text-4xl font-extrabold text-center mb-2">Pencatatan Stok</h1>
             <p class="text-gray-700 text-center mb-8">Silakan isi sesuai jumlah di tangan Anda</p>
         </div>
-        @if(session('success'))
-<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Sukses!</strong>
-    <span class="block sm:inline">{{ session('success') }}</span>
-</div>
-@endif
-
-@if(session('error'))
-<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Error!</strong>
-    <span class="block sm:inline">{{ session('error') }}</span>
-</div>
-@endif
-
-@if ($errors->any())
-    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-        <strong class="font-bold">Gagal Validasi!</strong>
-        <ul class="list-disc list-inside space-y-1">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
 
         <div class="mb-6">
             <label class="block text-sm font-bold text-gray-800 mb-2" for="outlet_select">Pilih Outlet</label>
@@ -140,9 +118,9 @@
 
             <input type="hidden" name="outlet_id" id="outlet_id_hidden">
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-10 gap-y-6">
+            <div class="grid grid-cols-2 gap-x-12 gap-y-6">
                 
-                <div id="kartu-perdana-section" class="category-section md:col-span-1">
+                <div id="kartu-perdana-section" class="category-section">
                     <h2 class="text-xl font-bold mb-4">Kartu Perdana</h2>
                     <div class="grid grid-cols-1 gap-6">
                         @php $kp_products = ['3 GB', '6 GB', '9 GB', '20 GB']; @endphp
@@ -161,14 +139,15 @@
                     <div class="grid grid-cols-2 gap-x-6 gap-y-6">
                         @php
                             $v_products = [
-                                '1 GB/2 hari', '15 GB/7 hari',
-                                '3 GB/3 hari', '3 GB/28 hari',
-                                '5 GB/5 hari', '5 GB/2 hari',
-                                '7 GB/7 hari', '5 GB/3 hari',
+                                '1.5 GB/1 hari', '5 GB/5 hari',
+                                '3.5 GB/5 hari', '7 GB/7hari',
+                                '5 GB/3 hari', '3 GB/3 hari',
+                                '5 GB/2 hari', '3 GB/1 hari', 
+                                '15 GB/7 hari',
                             ];
                         @endphp
                         @foreach($v_products as $product)
-                            @php $name = strtolower(str_replace([' ', '/', 'hari'], ['_', '_', 'h'], $product)); @endphp
+                            @php $name = strtolower(str_replace([' ', '/', 'hari'], ['', '', 'h'], $product)); @endphp
                             <div class="input-group">
                                 <label for="v_{{ $name }}">{{ $product }}</label>
                                 <input type="number" id="v_{{ $name }}" name="stok[v][{{ $name }}]" placeholder="Masukkan jumlah" min="0" value="0">
@@ -177,6 +156,7 @@
                     </div>
                 </div>
             </div>
+
 
             <div class="text-center mt-10">
                 <button type="submit" class="submit-button">SUBMIT</button>

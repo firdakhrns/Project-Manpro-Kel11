@@ -206,12 +206,13 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const dseSelect = document.getElementById('dse_id');
-            const outletSelect = document.getElementById('outlet_id_select');
-
-            const form = document.getElementById('stockFormAdmin');
-            if (form) {
+    document.addEventListener('DOMContentLoaded', function() {
+        const dseSelect = document.getElementById('dse_id');
+        const outletSelect = document.getElementById('outlet_id_select');
+        
+        // --- 1. Validasi Submit Form ---
+        const form = document.getElementById('stockFormAdmin');
+        if (form) {
             form.addEventListener('submit', function(e) {
                 if (!dseSelect.value || !outletSelect.value) {
                     e.preventDefault();
@@ -220,37 +221,79 @@
                 }
             });
         }
+        
+        // --- 2. AJAX DSE Change Listener ---
+        dseSelect.addEventListener('change', function() {
+            const selectedDSEId = this.value;
+            // Kosongkan Outlet dan tampilkan loading
+            outletSelect.innerHTML = '<option value="">Memuat Outlet...</option>'; 
 
-            const categoryButtons = document.querySelectorAll('.category-button');
-            const kpSection = document.getElementById('kartu-perdana-section');
-            const voucherSection = document.getElementById('voucher-section');
-
-            function showCategory(category) {
-                if (category === 'all') {
-                    kpSection.style.display = 'block';
-                    voucherSection.style.display = 'block';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr 2fr';
-                } else if (category === 'kartu-perdana') {
-                    kpSection.style.display = 'block';
-                    voucherSection.style.display = 'none';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
-                } else if (category === 'voucher') {
-                    kpSection.style.display = 'none';
-                    voucherSection.style.display = 'block';
-                    document.querySelector('.container > form .grid').style.gridTemplateColumns = '1fr';
-                }
+            if (!selectedDSEId) {
+                outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';
+                return;
             }
 
-            categoryButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    categoryButtons.forEach(btn => btn.classList.remove('active'));
-                    this.classList.add('active');
-                    showCategory(this.dataset.category);
-                });
-            });
+            // Kirim permintaan AJAX ke Controller Laravel
+            // PERHATIAN: Pastikan rute ini telah didefinisikan di routes/web.php
+            fetch('/admin/get-outlets-by-dse?dse_id=' + selectedDSEId)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Gagal memuat outlet. Status: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(outlets => {
+                    // Kosongkan dan isi ulang dropdown Outlet
+                    outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';
 
-            showCategory('all');
+                    if (outlets.length === 0) {
+                        outletSelect.innerHTML += '<option value="" disabled>Tidak ada outlet di region ini</option>';
+                        return;
+                    }
+
+                    outlets.forEach(outlet => {
+                        const option = document.createElement('option');
+                        option.value = outlet.id;
+                        option.textContent = `${outlet.name} - ${outlet.region}`;
+                        outletSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching outlets:', error);
+                    outletSelect.innerHTML = '<option value="">Gagal memuat outlet (Cek konsol/server)</option>';
+                });
         });
-    </script>
+
+        // --- 3. Logika Category Toggle ---
+        const categoryButtons = document.querySelectorAll('.category-button');
+        const kpSection = document.getElementById('kartu-perdana-section');
+        const voucherSection = document.getElementById('voucher-section');
+
+        function showCategory(category) {
+            // Hapus manipulasi grid-template-columns. Kita hanya perlu mengontrol display.
+            if (category === 'all') {
+                kpSection.style.display = 'block';
+                voucherSection.style.display = 'block';
+            } else if (category === 'kartu-perdana') {
+                kpSection.style.display = 'block';
+                voucherSection.style.display = 'none';
+            } else if (category === 'voucher') {
+                kpSection.style.display = 'none';
+                voucherSection.style.display = 'block';
+            }
+        }
+
+        categoryButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                categoryButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                showCategory(this.dataset.category);
+            });
+        });
+
+        // Set default view ke 'all' saat halaman dimuat
+        showCategory('all');
+    });
+</script>
 </body>
 </html>
