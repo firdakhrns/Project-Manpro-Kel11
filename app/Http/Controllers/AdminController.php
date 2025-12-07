@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class AdminController extends Controller
 {
@@ -91,7 +92,7 @@ class AdminController extends Controller
             }
             $tanggal = Carbon::today()->toDateString();
         }
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         $tanggalCari = Carbon::today();
         if ($isFiltered) {
             $validationError = 'Format tanggal tidak valid. Menggunakan Tanggal Hari Ini.';
@@ -116,7 +117,6 @@ class AdminController extends Controller
         ];
     }
 
-    // A. Query Stok (stok & all)
     if ($tipe == 'stok' || $tipe == 'all') {
         $stokQuery = $this->buildPivotQuery('stock_log_items', 'stock_logs', $tanggalCari, $dseIdFilter);
         $this->aggregatePivotData($stokQuery->get(), $pivotData, 'stok');
@@ -178,14 +178,14 @@ class AdminController extends Controller
     public function createStok()
     {
         $dseUsers = User::where('role', 'DSE')->get();
-        $outlets = Outlet::all();
+        $outlets = Outlet::where('status', 'Aktif')->orderBy('name')->get();
         return view('admin.view_stok', compact('dseUsers', 'outlets')); 
     }
 
     public function createRetur()
     {
         $dseUsers = User::where('role', 'DSE')->get();
-        $outlets = Outlet::all();
+        $outlets = Outlet::where('status', 'Aktif')->orderBy('name')->get();
         return view('admin.view_retur', compact('dseUsers', 'outlets'));
     }
 
@@ -254,7 +254,7 @@ class AdminController extends Controller
             DB::commit();
             return redirect()->route('admin.riwayat_pencatatan')->with('success', 'Data stok berhasil ditambahkan!');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menyimpan data stok: ' . $e->getMessage())->withInput();
         }
@@ -280,12 +280,25 @@ class AdminController extends Controller
         return back()->withErrors($validator)->withInput();
     }
     
-    $dseIdTarget = $request->username_id;
+    $dseIdTarget = $request->username_id; 
     $outletId = $request->outlet_id;
     $allReturInputs = array_merge($request->input('retur.kp', []), $request->input('retur.v', []));
     $productsMap = $this->getProductsMap();
     $errors = []; 
     
+    
+    $totalStokMasuk = StockLog::where('username_id', $dseIdTarget)
+        ->where('outlet_id', $outletId)
+        ->join('stock_log_items', 'stock_logs.id', '=', 'stock_log_items.stock_log_id')
+        ->groupBy('stock_log_items.product_id')
+        ->pluck(DB::raw('SUM(stock_log_items.quantity)'), 'stock_log_items.product_id');
+
+    $totalReturKeluar = ReturnLog::where('username_id', $dseIdTarget)
+        ->where('outlet_id', $outletId)
+        ->join('return_log_items', 'return_logs.id', '=', 'return_log_items.return_log_id')
+        ->groupBy('return_log_items.product_id')
+        ->pluck(DB::raw('SUM(return_log_items.quantity)'), 'return_log_items.product_id');
+
     foreach ($allReturInputs as $inputKey => $returQuantity) {
         $returQuantity = (int) $returQuantity;
         if ($returQuantity <= 0) continue;
@@ -294,69 +307,62 @@ class AdminController extends Controller
         $productId = $productsMap[$productCode] ?? null;
     
         if ($productId) {
-        $lastStockItem = StockLogItem::where('product_id', $productId)
-            ->whereHas('stockLog', function($q) use ($dseIdTarget, $outletId) {
-                $q->where('username_id', $dseIdTarget)->where('outlet_id', $outletId); 
-            })
-            ->orderBy('created_at', 'desc')
-            ->first();
+            $stokMasuk = $totalStokMasuk[$productId] ?? 0;
+            $returKeluar = $totalReturKeluar[$productId] ?? 0;
             
-        $stokTersedia = $lastStockItem ? $lastStockItem->quantity : 0;
-        
-        if ($returQuantity > $stokTersedia) {
-            $errors[$inputKey] = "Gagal: Jumlah Retur untuk produk $productCode ($returQuantity) melebihi Stok Terakhir yang tercatat ($stokTersedia). Harap periksa riwayat stok atau input stok terlebih dahulu.";
-        }
+            $stokNettoTersedia = $stokMasuk - $returKeluar;
+            
+            if ($returQuantity > $stokNettoTersedia) {
+                $productName = Product::find($productId)->product_name ?? $productCode;
+                $errors[] = "Retur $productName ($returQuantity) melebihi Saldo Stok Netto ($stokNettoTersedia). Total Stok Masuk: $stokMasuk, Total Retur Sebelumnya: $returKeluar.";
+            }
         }
     }
     
     if (!empty($errors)) {
-
-        return back()->withErrors($errors)->withInput();
+        return back()->with('error', $errors)->withInput(); 
     }
+        
+    DB::beginTransaction();
+    try {
+        $returnLog = ReturnLog::create([
+            'username_id' => $dseIdTarget,
+            'outlet_id' => $request->outlet_id,
+            'date' => now()->toDateString(),
+            'notes' => $request->notes ?? 'Retur oleh Admin', 
+        ]);
 
-        DB::beginTransaction();
-        try {
-            $returnLog = ReturnLog::create([
-                'username_id' => $dseIdTarget,
-                'outlet_id' => $request->outlet_id,
-                'date' => now()->toDateString(),
-                'notes' => 'Retur harian',
-            ]);
+        $logItemsToInsert = [];
+        foreach ($allReturInputs as $inputKey => $quantity) {
+            $productCode = $this->productMapping[$inputKey] ?? null;
+            $quantity = (int) $quantity;
 
-            $logItemsToInsert = [];
-            $savedItems = 0;
-
-            foreach ($allReturInputs as $inputKey => $quantity) {
-                $productCode = $this->productMapping[$inputKey] ?? null;
-                $quantity = (int) $quantity;
-
-                if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
-                    $logItemsToInsert[] = [
-                        'return_log_id' => $returnLog->id,
-                        'product_id' => $productsMap[$productCode],
-                        'quantity' => $quantity,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                    $savedItems++;
-                }
+            if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
+                $logItemsToInsert[] = [
+                    'return_log_id' => $returnLog->id,
+                    'product_id' => $productsMap[$productCode],
+                    'quantity' => $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
-
-            if (!empty($logItemsToInsert)) {
-                ReturnLogItem::insert($logItemsToInsert);
-            }
-            
-            DB::commit();
-            return redirect()->route('admin.riwayat_pencatatan', [
-            'tanggal' => Carbon::now()->toDateString(),
-            'tipe' => 'retur'
-            ])->with('success', 'Data retur berhasil disimpan!');
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal menyimpan data retur: ' . $e->getMessage())->withInput();
         }
+
+        if (!empty($logItemsToInsert)) {
+            ReturnLogItem::insert($logItemsToInsert);
+        }
+        
+        DB::commit();
+        return redirect()->route('admin.riwayat_pencatatan', [
+        'tanggal' => Carbon::now()->toDateString(),
+        'tipe' => 'retur'
+        ])->with('success', 'Data retur berhasil disimpan!');
+        
+    } catch (Exception $e) {
+        DB::rollBack();
+        return back()->with('error', 'Gagal menyimpan data retur: ' . $e->getMessage())->withInput();
     }
+}
 
     public function storeOutlet(Request $request)
     {
@@ -393,7 +399,7 @@ class AdminController extends Controller
 
             return redirect()->route('admin.view_outlet')->with('success', 'Outlet berhasil ditambahkan!');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return back()->with('error', 'Gagal menambahkan outlet: ' . $e->getMessage())->withInput();
         }
     }
@@ -482,7 +488,7 @@ class AdminController extends Controller
 
             return redirect()->route('admin.view_outlet')->with('success', 'Outlet berhasil dihapus!');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menghapus outlet: ' . $e->getMessage());
         }
@@ -534,20 +540,18 @@ class AdminController extends Controller
     public function getOutletsByDSE(Request $request)
 {
     $dseId = $request->input('dse_id');
-    
-    // 1. Ambil data DSE untuk mendapatkan region-nya
-    $dseUser = User::where('id_dse', $dseId)->first(['region']);
+        $dseUser = User::where('id_dse', $dseId)->first(['region']);
 
     if (!$dseUser) {
-        return response()->json([]); // Kembalikan array kosong jika DSE tidak ditemukan
+        return response()->json([]); 
     }
 
     $regionTarget = $dseUser->region;
 
-    // 2. Ambil Outlet yang region-nya sama
     $outlets = Outlet::where('region', $regionTarget)
-                     ->orderBy('name')
-                     ->get(['id', 'name', 'region']);
+                    ->where('status', 'Aktif')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'region']);
 
     return response()->json($outlets);
 }

@@ -13,11 +13,16 @@ class UserSeeder extends Seeder
         $now = now();
         
         DB::table('users')->insert([
-            ['name'=>'DSE Lapangan 1','id_dse'=>'CSOB-BJM1','password'=>Hash::make('dsel1'),'role'=>'DSE','created_at'=>$now,'updated_at'=>$now,'region'=>'Banjarmasin'],
-            ['name'=>'DSE Lapangan 2','id_dse'=>'CSOB-BJM2','password'=>Hash::make('dsel2'),'role'=>'DSE','created_at'=>$now,'updated_at'=>$now,'region'=>'Banjarmasin'],
-            ['name'=>'DSE Lapangan 3','id_dse'=>'CSOB-BJM3','password'=>Hash::make('dsel3'),'role'=>'DSE','created_at'=>$now,'updated_at'=>$now,'region'=>'Banjarmasin'],
-            ['name'=>'DSE Lapangan 4','id_dse'=>'CSOB-BJM4','password'=>Hash::make('dsel4'),'role'=>'DSE','created_at'=>$now,'updated_at'=>$now,'region'=>'Banjarmasin'],
-            ['name'=>'DSE Lapangan 5','id_dse'=>'CSOB-BJM5','password'=>Hash::make('dsel5'),'role'=>'DSE','created_at'=>$now,'updated_at'=>$now,'region'=>'Banjarmasin'],
+            [
+                'id' => 6, 
+                'name' => 'Erika',
+                'id_dse' => 'DSE_ERIKA',
+                'password' => Hash::make('manprojaya'),
+                'role' => 'DSE',
+                'region' => 'Banjarmasin Utara',
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
         ]);
     }
 }

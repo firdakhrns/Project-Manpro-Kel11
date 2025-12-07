@@ -94,7 +94,7 @@
         <form id="logout-form-admin" action="{{ route('logout') }}" method="POST" style="display: none;">
             @csrf
         </form>
-        <button onclick="document.getElementById('logout-form-admin').submit();" type="submit" class="logout-btn">Logout</button>
+        <button onclick="document.getElementById('logout-form-admin').submit();" type="submit" class="logout-btn">LOGOUT</button>
     </div>
 </body>
 </html>

@@ -61,10 +61,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border: 1px solid #d1d5db; /* Border solid, bukan dashed */
-            border-radius: 6px; /* Sesuai input field */
-            padding: 10px; /* Padding lebih kecil */
-            height: 44px; /* Tinggi disesuaikan agar sejajar dengan input */
+            border: 1px solid #d1d5db; 
+            border-radius: 6px; 
+            padding: 10px;
+            height: 44px; 
             text-align: center;
             cursor: pointer;
             transition: background-color 0.2s;
@@ -93,6 +93,11 @@
         .header-content {
             padding-top: 40px; /* Memberi ruang di bawah tombol back */
         }
+        .required-label { 
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
     </style>
 </head>
 <body class="flex items-start justify-center min-h-screen p-4">
@@ -107,6 +112,7 @@
             <p class="text-gray-700 text-center mb-8">Silakan diisi dengan data sebenar-benarnya</p>
         </div>
 
+        {{-- NOTIFIKASI SUKSES / ERROR / VALIDASI --}}
         @if(session('success'))
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
             <strong class="font-bold">Sukses!</strong>
@@ -134,42 +140,58 @@
 
         <form id="outletForm" action="{{ route('dse.input_outlet.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
-            {{-- <input type="hidden" name="tanggal_input" value="<?php echo date('Y-m-d'); ?>"> --}}
-
+            
             <div class="grid grid-cols-3 gap-x-12 gap-y-6">
+                {{-- KOLOM KIRI --}}
                 <div>
                     <div class="input-group mb-6">
-                        <label for="nama_outlet">Nama Outlet</label>
-                        <input type="text" id="nama_outlet" name="nama_outlet" placeholder="Masukkan nama outlet" required>
+                        <label for="nama_outlet" class="required-label">
+                            Nama Outlet <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="nama_outlet" name="nama_outlet" placeholder="Masukkan nama outlet" required value="{{ old('nama_outlet') }}">
                     </div>
                     <div class="input-group mb-6">
-                        <label for="alamat_outlet">Alamat Outlet</label>
-                        <input type="text" id="alamat_outlet" name="alamat_outlet" placeholder="Masukkan alamat outlet" required>
+                        <label for="alamat_outlet" class="required-label">
+                            Alamat Outlet <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="alamat_outlet" name="alamat_outlet" placeholder="Masukkan alamat outlet" required value="{{ old('alamat_outlet') }}">
                     </div>
                     <div class="input-group">
-                        <label for="tanggal_bergabung">Tanggal Bergabung</label>
-                        <input type="date" id="tanggal_bergabung" name="tanggal_bergabung" placeholder="Masukkan tanggal" required>
+                        <label for="tanggal_bergabung" class="required-label">
+                            Tanggal Bergabung <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" id="tanggal_bergabung" name="tanggal_bergabung" placeholder="Masukkan tanggal" required value="{{ old('tanggal_bergabung') }}">
                     </div>
                 </div>
 
+                {{-- KOLOM TENGAH --}}
                 <div>
                     <div class="input-group mb-6">
-                        <label for="nama_pemilik">Nama Pemilik</label>
-                        <input type="text" id="nama_pemilik" name="nama_pemilik" placeholder="Masukkan nama" required>
+                        <label for="nama_pemilik" class="required-label">
+                            Nama Pemilik <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="nama_pemilik" name="nama_pemilik" placeholder="Masukkan nama" required value="{{ old('nama_pemilik') }}">
                     </div>
                     <div class="input-group mb-6">
-                        <label for="no_telepon_pemilik">No. Telepon Pemilik</label>
-                        <input type="tel" id="no_telepon_pemilik" name="no_telepon_pemilik" placeholder="Masukkan nomor telepon" required>
+                        <label for="no_telepon_pemilik" class="required-label">
+                            No. Telepon Pemilik <span class="text-red-500">*</span>
+                        </label>
+                        <input type="tel" id="no_telepon_pemilik" name="no_telepon_pemilik" placeholder="Masukkan nomor telepon" required value="{{ old('no_telepon_pemilik') }}">
                     </div>
                     <div class="input-group">
-                        <label for="no_telepon_darurat">No. Telepon Darurat</label>
-                        <input type="tel" id="no_telepon_darurat" name="no_telepon_darurat" placeholder="Masukkan nomor telepon">
+                        <label for="no_telepon_darurat">
+                            No. Telepon Darurat (Opsional)
+                        </label>
+                        <input type="tel" id="no_telepon_darurat" name="no_telepon_darurat" placeholder="Masukkan nomor telepon" value="{{ old('no_telepon_darurat') }}">
                     </div>
                 </div>
 
+                {{-- KOLOM KANAN (FOTO) --}}
                 <div>
                     <div class="input-group mb-6">
-                        <label for="tampak_depan_outlet_file">Tampak Depan Outlet</label>
+                        <label for="tampak_depan_outlet_file" class="required-label">
+                            Tampak Depan Outlet <span class="text-red-500">*</span>
+                        </label>
                         <label class="upload-area" for="tampak_depan_outlet_file">
                             <div class="upload-area-content" id="filename_depan">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -182,7 +204,9 @@
                     </div>
 
                     <div class="input-group">
-                        <label for="foto_etalase_file">Foto Etalase</label>
+                        <label for="foto_etalase_file" class="required-label">
+                            Foto Etalase <span class="text-red-500">*</span>
+                        </label>
                         <label class="upload-area" for="foto_etalase_file">
                             <div class="upload-area-content" id="filename_etalase">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -200,61 +224,72 @@
                 <button type="button" id="submitButton" class="submit-button">SUBMIT</button>
             </div>
         </form>
+    </div>
 
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const fileInputDepan = document.getElementById('tampak_depan_outlet_file');
-                const fileInputEtalase = document.getElementById('foto_etalase_file');
-                const submitButton = document.getElementById('submitButton');
-                const form = document.getElementById('outletForm');
+    {{-- SCRIPTS --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInputDepan = document.getElementById('tampak_depan_outlet_file');
+            const fileInputEtalase = document.getElementById('foto_etalase_file');
+            const submitButton = document.getElementById('submitButton');
+            const form = document.getElementById('outletForm');
+            
+            // Fungsi untuk menampilkan nama file yang sudah diunggah
+            function updateFileNameDisplay(inputElement, displayId) {
+                const displayElement = document.getElementById(displayId);
                 
-                function updateFileNameDisplay(inputElement, displayId) {
-                    const displayElement = document.getElementById(displayId);
-                    
-                    inputElement.addEventListener('change', function() {
-                        if (this.files.length > 0) {
-                            const fileName = this.files[0].name;
-                            displayElement.innerHTML = `
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span class="text-green-600 font-medium truncate">${fileName}</span>
-                            `;
-                        } else {
-                            displayElement.innerHTML = `
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                                <span>Unggah Foto</span>
-                            `;
-                        }
-                    });
+                inputElement.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        const fileName = this.files[0].name;
+                        // Menampilkan ikon ceklis hijau dan nama file
+                        displayElement.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-green-600 font-medium truncate">${fileName}</span>
+                        `;
+                    } else {
+                        // Kembali ke tampilan default jika file dihapus
+                        displayElement.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            <span>Unggah Foto</span>
+                        `;
+                    }
+                });
+            }
+
+            updateFileNameDisplay(fileInputDepan, 'filename_depan');
+            updateFileNameDisplay(fileInputEtalase, 'filename_etalase');
+            
+            // Handler kustom untuk tombol submit
+            submitButton.addEventListener('click', function(e) {
+                
+                // Cek Validitas Form HTML5 (termasuk required pada input text/date)
+                if (!form.reportValidity()) {
+                    return;
+                }
+                
+                // Cek file input kustom (file input required butuh cek kustom)
+                if (fileInputDepan.files.length === 0) {
+                    // Alert kustom jika file Depan belum diisi
+                    alert("GAGAL SUBMIT: Harap unggah foto 'Tampak Depan Outlet' terlebih dahulu.");
+                    fileInputDepan.focus();
+                    return; 
                 }
 
-                updateFileNameDisplay(fileInputDepan, 'filename_depan');
-                updateFileNameDisplay(fileInputEtalase, 'filename_etalase');
-                
-                submitButton.addEventListener('click', function(e) {
-                    
-                    if (fileInputDepan.files.length === 0) {
-                        alert("GAGAL SUBMIT: Harap unggah foto 'Tampak Depan Outlet' terlebih dahulu.");
-                        return; 
-                    }
+                if (fileInputEtalase.files.length === 0) {
+                    // Alert kustom jika file Etalase belum diisi
+                    alert("GAGAL SUBMIT: Harap unggah foto 'Foto Etalase' terlebih dahulu.");
+                    fileInputEtalase.focus();
+                    return;
+                }
 
-                    if (fileInputEtalase.files.length === 0) {
-                        alert("GAGAL SUBMIT: Harap unggah foto 'Foto Etalase' terlebih dahulu.");
-                        return;
-                    }
-
-                    if (!form.reportValidity()) {
-                        return;
-                    }
-
-                    form.submit();
-                });
+                // Jika semua validasi klien (HTML5 dan kustom file) berhasil, submit form
+                form.submit();
             });
-        </script>
-        
-    </div>
+        });
+    </script>
 </body>
 </html>

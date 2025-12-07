@@ -119,7 +119,7 @@
         <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
             @csrf
         </form>
-        <button onclick="document.getElementById('logout-form').submit();" type="submit" class="logout-btn">Logout</button>
+        <button onclick="document.getElementById('logout-form').submit();" type="submit" class="logout-btn">LOGOUT</button>
     </div>
     
     <script>

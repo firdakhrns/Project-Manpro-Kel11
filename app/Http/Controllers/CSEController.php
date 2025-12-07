@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Storage;
 class CSEController extends Controller
 {
 
-    // Di CSEController.php
 private function getManagedRegions($userRegion, $userRole)
 {
     if ($userRole === 'Manager' && $userRegion === 'Banjarmasin') {
@@ -48,7 +47,6 @@ private function getManagedRegions($userRegion, $userRole)
         ];
     }
     
-    // Default
     return [$userRegion];
 }
 
@@ -64,7 +62,6 @@ private function getManagedRegions($userRegion, $userRole)
 
     $isFiltered = $startDate || $endDate || $dseId;
 
-    // Set default jika tidak ada filter
     if (!$isFiltered) {
         $startDate = Carbon::today()->subDays(7)->toDateString();
         $endDate = Carbon::today()->toDateString();
@@ -92,19 +89,16 @@ private function getManagedRegions($userRegion, $userRole)
                         ->pluck('product_name')
                         ->toArray();
     
-    // PERBAIKAN: Query DSE berdasarkan filter
     $dseQuery = User::where('role', 'DSE')
                    ->whereIn('region', $regionsToSearch);
     
     if ($dseId) {
-        // Jika filter DSE dipilih, hanya ambil DSE tersebut
         $dseQuery->where('id_dse', $dseId);
     }
     
     $dseList = $dseQuery->select('id_dse', 'name')
                        ->get(); 
 
-    // QUERY DATA dengan kondisi yang benar
     $query = StockLog::with(['user', 'outlet', 'items.product'])
                     ->whereHas('user', function($query) use ($regionsToSearch) {
                         $query->whereIn('region', $regionsToSearch);
@@ -124,7 +118,6 @@ private function getManagedRegions($userRegion, $userRole)
 
     $initialProductCounts = array_fill_keys($productHeaders, 0);
 
-    // PERBAIKAN: Inisialisasi pivot data hanya untuk DSE yang akan ditampilkan
     foreach ($dseList as $dse) {
         $pivotData[$dse->id_dse] = [
             'dse_name' => $dse->name ?? 'Unknown',
@@ -132,11 +125,9 @@ private function getManagedRegions($userRegion, $userRole)
         ];
     }
 
-    // Proses data stok
     foreach ($stokData as $log) {
         $dseIdLog = $log->username_id;
         
-        // Inisialisasi jika DSE belum ada (untuk jaga-jaga)
         if (!isset($pivotData[$dseIdLog])) {
             $pivotData[$dseIdLog] = [
                 'dse_name' => $log->user->name ?? 'Unknown',
@@ -179,7 +170,6 @@ private function getManagedRegions($userRegion, $userRole)
 
     $isFiltered = $startDate || $endDate || $dseId;
     
-    // Set default jika tidak ada filter
     if (!$isFiltered) {
         $startDate = Carbon::today()->subDays(7)->toDateString();
         $endDate = Carbon::today()->toDateString();
@@ -208,12 +198,10 @@ private function getManagedRegions($userRegion, $userRole)
     $returData = collect();
     $pivotData = [];
 
-    // PERBAIKAN: Query DSE berdasarkan filter
     $dseQuery = User::where('role', 'DSE')
                    ->whereIn('region', $regionsToSearch);
     
     if ($dseId) {
-        // Jika filter DSE dipilih, hanya ambil DSE tersebut
         $dseQuery->where('id_dse', $dseId);
     }
     
@@ -239,7 +227,6 @@ private function getManagedRegions($userRegion, $userRole)
 
     $initialProductCounts = array_fill_keys($productHeaders, 0);
 
-    // PERBAIKAN: Inisialisasi pivot data hanya untuk DSE yang akan ditampilkan
     foreach ($dseList as $dse) {
         $pivotData[$dse->id_dse] = [
             'dse_name' => $dse->name ?? 'Unknown',
@@ -298,61 +285,66 @@ private function getManagedRegions($userRegion, $userRole)
     public function viewPerforma(Request $request)
     {
         $user = Auth::guard('shared')->user();
-        $userRegion = $user->region; // TAMBAHKAN INI
-        $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
-        
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
-        
-        $isFiltered = $startDate && $endDate;
+    $userRegion = $user->region; 
+    $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
+    
+    $inputStartDate = $request->input('start_date');
+    $inputEndDate = $request->input('end_date');
+    
+    $isFiltered = $inputStartDate && $inputEndDate;
 
-        // Set default jika tidak ada filter
-        if (!$isFiltered) {
-            $startDate = Carbon::today()->subDays(30)->toDateString();
-            $endDate = Carbon::today()->toDateString();
-            $isFiltered = true;
-        }
+    $startDate = $inputStartDate ?: Carbon::today()->subDays(30)->toDateString();
+    $endDate = $inputEndDate ?: Carbon::today()->toDateString();
 
-        if ($startDate && $endDate) {
-            try {
-                $startCarbon = Carbon::parse($startDate);
-                $endCarbon = Carbon::parse($endDate);
+    $isFiltered = $isFiltered || ($inputStartDate === null && $inputEndDate === null);
 
-                if ($startCarbon->greaterThan($endCarbon)) {
-                    return redirect()->back()->withErrors([
-                        'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
-                    ])->withInput();
-                }
-            } catch (\Exception $e) {
-                return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
+    if ($startDate && $endDate) {
+        try {
+            $startCarbon = Carbon::parse($startDate);
+            $endCarbon = Carbon::parse($endDate);
+
+            if ($startCarbon->greaterThan($endCarbon)) {
+                return redirect()->back()->withErrors([
+                    'date_range' => 'Tanggal "Dari" tidak boleh melebihi Tanggal "Sampai".'
+                ])->withInput();
             }
+        } catch (\Exception $e) {
+            return redirect()->back()->withErrors(['date_format' => 'Format tanggal tidak valid.'])->withInput();
         }
+    }
         
-        // 1. HITUNG TOTAL STOK MASUK - PERBAIKAN: gunakan $regionsToSearch
         $stockTotals = DB::table('stock_logs as sl')
             ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
             ->join('users as u', 'sl.username_id', '=', 'u.id_dse')
             ->select('sl.username_id as dse_id', DB::raw('SUM(sli.quantity) as total_stok_masuk'))
             ->whereDate('sl.date', '>=', $startDate)
             ->whereDate('sl.date', '<=', $endDate)
-            ->whereIn('u.region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->whereIn('u.region', $regionsToSearch)
             ->where('u.role', 'DSE')
             ->groupBy('sl.username_id');
 
-        // 2. HITUNG TOTAL RETUR - PERBAIKAN: gunakan $regionsToSearch
+        $stockTotals = DB::table('stock_logs as sl')
+            ->join('stock_log_items as sli', 'sl.id', '=', 'sli.stock_log_id')
+            ->join('users as u', 'sl.username_id', '=', 'u.id_dse')
+            ->select('sl.username_id as dse_id', DB::raw('SUM(sli.quantity) as total_stok_masuk'))
+            ->whereDate('sl.date', '>=', $startDate)
+            ->whereDate('sl.date', '<=', $endDate)
+            ->whereIn('u.region', $regionsToSearch)
+            ->where('u.role', 'DSE')
+            ->groupBy('sl.username_id');
+
         $returnTotals = DB::table('return_logs as rl')
             ->join('return_log_items as rli', 'rl.id', '=', 'rli.return_log_id')
             ->join('users as u', 'rl.username_id', '=', 'u.id_dse')
             ->select('rl.username_id as dse_id', DB::raw('SUM(rli.quantity) as total_retur'))
             ->whereDate('rl.date', '>=', $startDate)
             ->whereDate('rl.date', '<=', $endDate)
-            ->whereIn('u.region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->whereIn('u.region', $regionsToSearch) 
             ->where('u.role', 'DSE')
             ->groupBy('rl.username_id');
             
-        // 3. GABUNGKAN DATA - PERBAIKAN: gunakan $regionsToSearch
         $performanceData = User::where('role', 'DSE')
-            ->whereIn('region', $regionsToSearch) // PERBAIKAN: whereIn bukan where
+            ->whereIn('region', $regionsToSearch) 
             ->select('users.id_dse')
             ->leftJoinSub($stockTotals, 'stock_t', function ($join) {
                 $join->on('users.id_dse', '=', 'stock_t.dse_id');
@@ -376,7 +368,6 @@ private function getManagedRegions($userRegion, $userRole)
             'dse_count' => $performanceData->count()
         ]);
 
-        // 4. Hitung Rasio Retur
         $finalData = $performanceData->map(function ($item) {
             $stokMasuk = (int) $item->total_stok_masuk;
             $totalRetur = (int) $item->total_retur;
@@ -400,7 +391,7 @@ private function getManagedRegions($userRegion, $userRole)
             'startDate' => $startDate, 
             'endDate' => $endDate, 
             'userRegion' => $userRegion,
-            'regionsToSearch' => $regionsToSearch, // TAMBAHKAN INI
+            'regionsToSearch' => $regionsToSearch, 
             'isFiltered' => $isFiltered, 
         ]);
     }
@@ -511,7 +502,7 @@ private function getManagedRegions($userRegion, $userRole)
     
     public function kritikSaran()
     {
-        return view('cse.kritik_saran'); // Dashboard pilihan
+        return view('cse.kritik_saran'); 
     }
 
     /**
@@ -523,10 +514,9 @@ private function getManagedRegions($userRegion, $userRole)
         $userRegion = $user->region;
         $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
         
-        // Pastikan mengambil DSE dengan kolom yang benar
         $dseList = User::where('role', 'DSE')
-                      ->whereIn('region', $regionsToSearch) // PERBAIKAN: whereIn
-                      ->select('id_dse', 'name', 'region') // Tambah region
+                      ->whereIn('region', $regionsToSearch) 
+                      ->select('id_dse', 'name', 'region') 
                       ->orderBy('region')
                       ->orderBy('id_dse')
                       ->get();
@@ -548,7 +538,6 @@ public function storeKritikSaran(Request $request)
             'required',
             'string',
             function ($attribute, $value, $fail) {
-                // Validasi bahwa DSE target ada di database
                 $dseExists = User::where('id_dse', $value)
                                ->where('role', 'DSE')
                                ->exists();
@@ -561,21 +550,21 @@ public function storeKritikSaran(Request $request)
         'feedback_text' => 'required|string|min:10|max:1000',
     ]);
 
-    // Simpan ke database
     Feedbacks::create([
         'cse_id' => Auth::guard('shared')->user()->username ?? Auth::guard('shared')->user()->id_dse,
         'dse_target' => $request->dse_target,
         'type' => strtolower($request->jenis_feedback),
         'message' => $request->feedback_text,
         'is_urgent' => false,
-        'created_at' => now(),
+        'created_at' => Carbon::now('Asia/Makassar'),
     ]);
 
     Log::info('Feedback dari CSE', [
         'cse' => Auth::guard('shared')->user()->username,
         'dse_target' => $request->dse_target,
         'type' => $request->jenis_feedback,
-        'message' => $request->feedback_text
+        'message' => $request->feedback_text,
+        'timestamp' => Carbon::now('Asia/Makassar')->format('Y-m-d H:i:s')
     ]);
 
     return redirect()->route('cse.kritik_saran')
@@ -593,7 +582,6 @@ public function storeKritikSaran(Request $request)
 
         $isFiltered = $startDate || $endDate;
         
-        // Set default jika tidak ada filter
         if (!$isFiltered) {
             $startDate = Carbon::today()->subDays(30)->toDateString();
             $endDate = Carbon::today()->toDateString();
@@ -645,7 +633,7 @@ public function storeKritikSaran(Request $request)
             'endDate',
             'isFiltered',
             'userRegion',
-            'regionsToSearch' // TAMBAHKAN INI
+            'regionsToSearch' 
         ));
     }
 
@@ -658,7 +646,6 @@ public function storeKritikSaran(Request $request)
     $userRegion = $user->region;
     $regionsToSearch = $this->getManagedRegions($userRegion, $user->role);
     
-    // Gunakan parameter dari query string
     $startDate = $request->query('start_date');
     $endDate = $request->query('end_date');
     
@@ -687,7 +674,6 @@ public function storeKritikSaran(Request $request)
     return $pdf->download($filename);
 }
 
-    // Di CSEController
     public function exportOutletPdf(Request $request)
     {
         $outlets = Outlet::where('status', 'Aktif') 
@@ -702,9 +688,6 @@ public function storeKritikSaran(Request $request)
         return $pdf->download('Daftar_Outlet_Aktif_' . Carbon::now()->format('Ymd_His') . '.pdf');
     }
 
-    /**
- * Export PDF Detail Outlet Spesifik (hanya 1 outlet)
- */
     public function exportOutletDetailPdf($id)
     {
         $outlet = Outlet::findOrFail($id); 

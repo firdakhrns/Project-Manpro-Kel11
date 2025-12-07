@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'id' => 2, 
-                'username' => 'SUPERADMIN_ERIKA',
+                'username' => 'ADMIN_ERIKA',
                 'password' => Hash::make('manprojaya'),
                 'region' => 'Banjarmasin',
                 'role' => 'Admin',
@@ -59,9 +59,17 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now
             ],
+            [
+                'id' => 4, 
+                'username' => 'SUPERADMIN_ERIKA',
+                'password' => Hash::make('manprojaya'),
+                'region' => 'Banjarmasin',
+                'role' => 'Manajer',
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
         ]);
         
-        // 2. USERS
         DB::table('users')->insert([
             [
                 'id' => 1, 
@@ -116,16 +124,15 @@ class DatabaseSeeder extends Seeder
             [
                 'id' => 6, 
                 'name' => 'Erika',
-                'id_dse' => 'SUPERADMIN_ERIKA',
+                'id_dse' => 'DSE_ERIKA',
                 'password' => Hash::make('manprojaya'),
-                'role' => 'Admin',
-                'region' => 'Banjarmasin',
+                'role' => 'DSE',
+                'region' => 'Banjarmasin Utara',
                 'created_at' => $now,
                 'updated_at' => $now
             ],
         ]);
 
-        // 3. OUTLETS
         DB::table('outlets')->insert([
             [
                 'id' => 1, 

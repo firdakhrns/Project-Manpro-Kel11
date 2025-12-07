@@ -7,9 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --im3-yellow: #FFDA00; --im3-red: #E21B21; --gray-light: #f4f4f4; }
-        
-        /* ... (Styling body, container-card, back-button-circle, h1, table, th, td, filter-input, filter-button-red TIDAK BERUBAH) ... */
-        body { 
+                body { 
             background-color: var(--im3-yellow); 
             font-family: 'Inter', sans-serif; 
             position: relative;
@@ -40,7 +38,6 @@
         
         .filter-input, .filter-button-red { height: 40px; } 
 
-        /* Styling Toggle Button */
         .category-buttons-wrapper { 
             background-color: #e5e7eb; 
             border-radius: 25px; 
@@ -63,7 +60,6 @@
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
         }
 
-        /* Styling Badge Info Header */
         .info-badge { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; margin-right: 12px; white-space: nowrap; }
         .info-badge-red { background-color: var(--im3-red); color: white; }
         .info-badge-text { background-color: #f0f0f0; color: #333; }
@@ -79,14 +75,36 @@
             </svg>
         </a>
 
-        {{-- Menggunakan $judulRiwayat dari controller jika tersedia, jika tidak default ke "Riwayat" --}}
         <h1 class="mb-8">{{ $judulRiwayat ?? 'Riwayat Pencatatan' }}</h1> 
         <p class="text-gray-500 text-center -mt-6 mb-8">Pencarian Riwayat Pencatatan Inventaris DSE</p>
 
-        {{-- FORM FILTER UTAMA (Mengandung Tanggal dan Tipe Log) --}}
+        @if (session('success'))
+            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+                <p class="font-bold">Berhasil!</p>
+                <p>{{ session('success') }}</p>
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                <p class="font-bold">Gagal!</p>
+                <p>{{ session('error') }}</p>
+            </div>
+        @endif
+
+        @if (session('custom_errors'))
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+                <p class="font-bold">⚠️ Peringatan Validasi Bisnis:</p>
+                <ul class="list-disc list-inside mt-1">
+                    @foreach (session('custom_errors') as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <form method="GET" action="{{ route('dse.riwayat_pencatatan') }}" class="flex flex-col sm:flex-row justify-center items-center mb-8 gap-3">
             
-            {{-- 1. INPUT TANGGAL --}}
             <div class="flex items-center">
                 <label for="filter_date" class="font-semibold text-gray-700 mr-2 whitespace-nowrap">Cari Tanggal:</label>
                 <input 
@@ -94,40 +112,29 @@
                     id="filter_date" 
                     name="tanggal" 
                     class="filter-input" 
-                    {{-- Menggunakan request('tanggal') atau default hari ini --}}
                     value="{{ request('tanggal', now()->toDateString()) }}"
                 >
             </div>
             
-            {{-- 2. TOGGLE TIPE LOG (STOK / RETUR / SEMUA) --}}
             @php $tipe = request('tipe', 'stok'); @endphp
             <div class="category-buttons-wrapper">
-                {{-- PENTING: Tombol submit harus mengirimkan semua parameter di form! --}}
-                
-                {{-- Stok --}}
                 <button type="submit" name="tipe" value="stok" 
                     class="category-button-toggle @if($tipe == 'stok') active @endif">Stok</button>
                 
-                {{-- Retur --}}
                 <button type="submit" name="tipe" value="retur" 
                     class="category-button-toggle @if($tipe == 'retur') active @endif">Retur</button>
                 
-                {{-- Semua --}}
                 <button type="submit" name="tipe" value="all" 
                     class="category-button-toggle @if($tipe == 'all') active @endif">Semua</button>
             </div>
             
-            {{-- Tombol Tampilkan Data (Submit) --}}
             <button type="submit" class="filter-button-red">Tampilkan Data</button>
 
-            {{-- CATATAN: Karena semua elemen ada di dalam satu form, hanya satu tombol submit yang diperlukan. --}}
         </form>
         
         <hr class="mb-8 border-gray-200">
 
-        {{-- INFO HEADER --}}
         @php
-            // $tanggalFilter harusnya dikirim dari Controller
             $tanggalTampil = \Carbon\Carbon::parse($tanggalFilter ?? Carbon\Carbon::today()->toDateString())->format('d F Y');
         @endphp
 
@@ -164,17 +171,17 @@
         <tbody>
             @forelse($dataToDisplay as $item)
                 <tr>
-                    <td>{{ $item[0] }}</td> {{-- Outlet --}}
-                    <td>{{ $item[1] }}</td> {{-- Kategori --}}
-                    <td>{{ $item[2] }}</td> {{-- Jenis Produk --}}
+                    <td>{{ $item[0] }}</td> 
+                    <td>{{ $item[1] }}</td> 
+                    <td>{{ $item[2] }}</td> 
                     @if($tipe == 'all')
-                        <td>{{ $item[3] }}</td> {{-- Stok --}}
-                        <td>{{ $item[4] }}</td> {{-- Retur --}}
+                        <td>{{ $item[3] }}</td>
+                        <td>{{ $item[4] }}</td>
                         <td class="{{ $item[5] < 0 ? 'text-red-600 font-bold' : '' }}">
                             {{ $item[5] }}
                         </td>
                     @else
-                        <td>{{ $item[3] }}</td> {{-- Jumlah --}}
+                        <td>{{ $item[3] }}</td> 
                     @endif
                 </tr>
             @empty

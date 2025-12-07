@@ -115,10 +115,9 @@
     {{-- FOOTER --}}
     <div class="footer">
         @php
-            // Pastikan menggunakan Carbon dengan Timezone Asia/Jakarta (WIB)
-            $nowWIB = \Carbon\Carbon::now('Asia/Jakarta');
+            $nowWITA = \Carbon\Carbon::now('Asia/Makassar');
         @endphp
- Dicetak oleh: {{ Auth::guard('shared')->user()->username }} pada {{ $nowWIB->format('d M Y H:i') }} WIB </div>
+ Dicetak oleh: {{ Auth::guard('shared')->user()->username }} pada {{ $nowWITA->format('d M Y H:i') }} WITA </div>
 
 </body>
 </html>

@@ -103,7 +103,6 @@
         }
         .export-btn:hover { background-color: #c7171d; }
 
-        /* Tombol Aksi */
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -134,7 +133,7 @@
         </a>
 
         <div class="header-content pt-10">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-2">Daftar Outlet Aktif</h1>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-2">Daftar Outlet</h1>
         </div>
         
         @if(session('success'))

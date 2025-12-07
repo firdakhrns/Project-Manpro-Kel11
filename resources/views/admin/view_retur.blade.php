@@ -112,39 +112,25 @@
             <p class="text-gray-700 text-center mb-8">Pilih DSE dan Outlet sebelum mencatat jumlah retur.</p>
         </div>
 
-        @if(session('success'))
-<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
-    <strong class="font-bold">Sukses!</strong>
-    <span class="block sm:inline">{{ session('success') }}</span>
-</div>
-@endif
-
-@if(session('error'))
+        @if(session('error'))
 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
     <strong class="font-bold">Error!</strong>
-    <span class="block sm:inline">{{ session('error') }}</span>
+    
+    @if(is_array(session('error')))
+        <p class="block sm:inline">Pencatatan retur gagal karena:</p>
+        <ul class="list-disc list-inside mt-2 ml-4">
+            @foreach (session('error') as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    @else
+        <span class="block sm:inline">{{ session('error') }}</span>
+    @endif
+    
+    <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" onclick="this.parentElement.parentElement.style.display='none';"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.497l-2.651 3.352a1.2 1.2 0 1 1-1.697-1.697l3.352-2.651-3.352-2.651a1.2 1.2 0 1 1 1.697-1.697l2.651 3.352 2.651-3.352a1.2 1.2 0 1 1 1.697 1.697L11.497 10l3.352 2.651a1.2 1.2 0 0 1 0 1.697z"/></svg>
+    </span>
 </div>
-@endif
-
-@if ($errors->any())
-    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-        <strong class="font-bold">Gagal Validasi!</strong>
-        <ul class="list-disc list-inside space-y-1">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-@if (session('custom_errors'))
-    <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-        <strong class="font-bold">Gagal Validasi Bisnis!</strong>
-        <ul class="list-disc list-inside space-y-1">
-            @foreach (session('custom_errors') as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
 @endif
 
         <form id="returFormAdmin" action="{{ route('admin.view_retur.store') }}" method="POST">
@@ -217,6 +203,22 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = this.value;
+            
+                if (value.length > 1 && value.startsWith('0')) {
+                    this.value = value.replace(/^0+/, '') || '0';
+                }
+            });
+        
+            input.addEventListener('blur', function(e) {
+                if (this.value !== '') {
+                    this.value = parseInt(this.value, 10) || 0;
+                }
+            });
+        });
+        
         const dseSelect = document.getElementById('dse_id');
         const outletSelect = document.getElementById('outlet_id_select');
 
@@ -233,7 +235,7 @@
         
         dseSelect.addEventListener('change', function() {
             const selectedDSEId = this.value;
-            outletSelect.innerHTML = '<option value="">Memuat Outlet...</option>'; // Loading State
+            outletSelect.innerHTML = '<option value="">Memuat Outlet...</option>'; 
 
             if (!selectedDSEId) {
                 outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';

@@ -30,7 +30,6 @@ class AuthController extends Controller
 
     $identifier = $request->dse_id;
 
-    // 1. Coba login sebagai DSE (User)
     $user = User::where('id_dse', $identifier)->first();
     if ($user && Hash::check($request->password, $user->password)) {
         Auth::guard('web')->login($user);
@@ -38,13 +37,11 @@ class AuthController extends Controller
         return redirect()->route('dse.dashboard')->with('success', 'Login DSE berhasil!');
     }
 
-    // 2. Coba login sebagai Admin/CSE/Manajer (SharedLogin)
     $admin = SharedLogin::where('username', $identifier)->first();
     if ($admin && Hash::check($request->password, $admin->password)) {
         Auth::guard('shared')->login($admin);
         $request->session()->regenerate();
         
-        // PERBAIKAN: Tambah redirect untuk Manajer
         if ($admin->role === 'Admin') {
             return redirect()->route('admin.dashboard')->with('success', 'Login Admin berhasil!');
         } elseif ($admin->role === 'CSE') {

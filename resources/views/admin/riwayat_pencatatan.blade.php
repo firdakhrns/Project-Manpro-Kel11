@@ -59,6 +59,31 @@
 
         <h1 class="main-title mb-2">Detail Stok</h1>
         <p class="text-gray-500 text-center -mt-2 mb-6">Laporan Stok Global Harian</p>
+
+        @if (session('success'))
+    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+        <p class="font-bold">Berhasil!</p>
+        <p>{{ session('success') }}</p>
+    </div>
+@endif
+
+@if (session('error'))
+    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+        <p class="font-bold">Gagal!</p>
+        <p>{{ session('error') }}</p>
+    </div>
+@endif
+
+@if (session('custom_errors'))
+    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+        <p class="font-bold">Peringatan Validasi Bisnis:</p>
+        <ul class="list-disc list-inside mt-1">
+            @foreach (session('custom_errors') as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
         
         <form method="GET" action="{{ route('admin.riwayat_pencatatan') }}" id="filterFormAdmin" class="filter-header-group">
             

@@ -34,7 +34,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
             </a>
-            <h1 class="text-2xl font-bold text-gray-900 flex-grow">Hasil Umpan Balik DSE</h1>
+            <h1 class="text-2xl font-bold text-gray-900 flex-grow">Hasil Kritik & Saran DSE</h1>
         </div>
 
         @if ($errors->any())
@@ -117,7 +117,7 @@
                                 @if (!($isFiltered ?? false))
                                     Silakan terapkan filter tanggal untuk menampilkan data.
                                 @else
-                                    Tidak ada data umpan balik untuk periode {{ $startDate ?? '' }} s.d. {{ $endDate ?? '' }}
+                                    Tidak ada data kritik & saran untuk periode {{ $startDate ?? '' }} s.d. {{ $endDate ?? '' }}
                                 @endif
                             </td>
                         </tr>

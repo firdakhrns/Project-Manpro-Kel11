@@ -20,24 +20,21 @@ use Exception;
 
 class DSEInputController extends Controller
 {
-    // Mapping Form Input Key ke Product Code
     private $productMapping = [
-    // Kartu Perdana - sesuaikan dengan underscore
     '3_gb' => 'KP_3GB',
     '6_gb' => 'KP_6GB', 
     '9_gb' => 'KP_9GB',
     '20_gb' => 'KP_20GB',
 
-    // Voucher - sesuaikan dengan format form
-    '1.5gb1h' => 'FI15_1D',  // 1.5 GB/1 hari
-    '5gb5h' => 'FI5_5D',     // 5 GB/5 hari
-    '3.5gb5h' => 'FI35_5D',  // 3.5 GB/5 hari
-    '7gb7h' => 'FI7_7D',     // 7 GB/7 hari
-    '5gb3h' => 'FI5_3D',     // 5 GB/3 hari
-    '3gb3h' => 'FI3_3D',     // 3 GB/3 hari
-    '5gb2h' => 'FI5_2D',     // 5 GB/2 hari
-    '3gb1h' => 'FI3_1D',     // 3 GB/1 hari
-    '15gb7h' => 'FI15_7D',   // 15 GB/7 hari
+    '1.5gb1h' => 'FI15_1D',  
+    '5gb5h' => 'FI5_5D',    
+    '3.5gb5h' => 'FI35_5D',  
+    '7gb7h' => 'FI7_7D',     
+    '5gb3h' => 'FI5_3D',     
+    '3gb3h' => 'FI3_3D',     
+    '5gb2h' => 'FI5_2D',    
+    '3gb1h' => 'FI3_1D',     
+    '15gb7h' => 'FI15_7D',  
 ];
 
     
@@ -53,13 +50,12 @@ class DSEInputController extends Controller
             return redirect()->route('login'); 
         }
         $user = Auth::user();
-        $outlets = Outlet::where('region', $user->region)->get(); 
+        $outlets = Outlet::where('region', $user->region)->where('status', 'Aktif')->get(); 
         return view('dse.input_stok', compact('outlets')); 
     }
 
     public function storeStok(Request $request)
 {
-    // Debug: log semua input
     Log::info('=== STORE STOK START ===');
     Log::info('Full Request:', $request->all());
     
@@ -88,18 +84,15 @@ class DSEInputController extends Controller
         'stok.v.*' => 'nullable|integer|min:0|max:500',
     ], $messages);
 
-    // Debug: lihat struktur data yang masuk
     Log::info('KP Inputs:', $request->input('stok.kp', []));
     Log::info('V Inputs:', $request->input('stok.v', []));
     
-    // PERBAIKAN: Gabungkan array dengan benar
     $kpInputs = $request->input('stok.kp', []);
     $vInputs = $request->input('stok.v', []);
     
     Log::info('KP Inputs Array:', $kpInputs);
     Log::info('V Inputs Array:', $vInputs);
     
-    // Gabungkan menjadi satu array
     $allStokInputs = [];
     
     foreach ($kpInputs as $key => $value) {
@@ -125,37 +118,37 @@ class DSEInputController extends Controller
         ]);
 
         $logItemsToInsert = [];
-        $savedItems = 0;
+    $savedItems = 0;
 
-        foreach ($allStokInputs as $inputKey => $quantity) {
-            $productCode = $this->productMapping[$inputKey] ?? null;
-            $quantity = (int) $quantity;
-            
-            Log::info("Processing {$inputKey}: quantity={$quantity}, productCode={$productCode}");
+    foreach ($allStokInputs as $inputKey => $quantity) {
+        $productCode = $this->productMapping[$inputKey] ?? null;
+        $quantity = (int) $quantity;
+    
+        Log::info("Processing {$inputKey}: quantity={$quantity}, productCode={$productCode}");
 
-            if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
-                $logItemsToInsert[] = [
-                    'stock_log_id' => $stockLog->id,
-                    'product_id' => $productsMap[$productCode],
-                    'quantity' => $quantity,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-                $savedItems++;
-                Log::info("✓ Added: {$productCode} (ID: {$productsMap[$productCode]}) = {$quantity}");
-            } elseif ($quantity > 0) {
-                Log::warning("✗ Skipped: {$inputKey} -> productCode not found in mapping");
-            }
+        if ($quantity > 0 && $productCode && $productsMap->has($productCode)) {
+            $logItemsToInsert[] = [
+                'stock_log_id' => $stockLog->id, 
+                'product_id' => $productsMap[$productCode],
+                'quantity' => $quantity,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            $savedItems++;
+            Log::info("✓ Added: {$productCode} (ID: {$productsMap[$productCode]}) = {$quantity}");
+        } elseif ($quantity > 0) {
+            Log::warning("✗ Skipped: {$inputKey} -> productCode not found in mapping");
         }
+    }
 
-        Log::info("Total items to insert: " . count($logItemsToInsert));
+Log::info("Total stock items to insert: " . count($logItemsToInsert));
 
-        if (!empty($logItemsToInsert)) {
-            StockLogItem::insert($logItemsToInsert);
-            Log::info("Items inserted successfully");
-        } else {
-            Log::warning("No items to insert - all quantities might be 0");
-        }
+if (!empty($logItemsToInsert)) {
+    StockLogItem::insert($logItemsToInsert); 
+    Log::info("Stock items inserted successfully");
+} else {
+    Log::warning("No stock items to insert - all quantities might be 0");
+}
         
         DB::commit();
         
@@ -180,7 +173,7 @@ class DSEInputController extends Controller
             return redirect()->route('login'); 
         }
         $user = Auth::user();
-        $outlets = Outlet::where('region', $user->region)->get();
+        $outlets = Outlet::where('region', $user->region)->where('status', 'Aktif')->get();
         return view('dse.input_retur', compact('outlets'));
     }
 
@@ -198,7 +191,6 @@ class DSEInputController extends Controller
         'retur.v.*.min' => 'Jumlah retur harus minimal :min.',
     ];
     
-    // Validasi custom untuk retur > stok
     $customErrors = [];
     
     $validator = Validator::make($request->all(), [
@@ -222,26 +214,21 @@ class DSEInputController extends Controller
         return back()->withErrors($validator)->withInput();
     }
     
-    // 1. HITUNG TOTAL STOK YANG TERSEDIA PER PRODUK
     $outletId = $request->outlet_id;
     $today = Carbon::today()->toDateString();
     
-    // Ambil total stok yang sudah diinput hari ini untuk outlet ini
     $todayStockLogs = StockLog::where('outlet_id', $outletId)
         ->whereDate('date', $today)
         ->with('items.product')
         ->get();
     
-    // Ambil total retur yang sudah diinput hari ini untuk outlet ini
     $todayReturnLogs = ReturnLog::where('outlet_id', $outletId)
         ->whereDate('date', $today)
         ->with('items.product')
         ->get();
     
-    // Hitung stok tersedia per product
     $availableStock = [];
     
-    // Proses data stok
     foreach ($todayStockLogs as $stockLog) {
         foreach ($stockLog->items as $item) {
             if ($item->product) {
@@ -256,7 +243,6 @@ class DSEInputController extends Controller
         }
     }
     
-    // Kurangi dengan retur yang sudah ada
     foreach ($todayReturnLogs as $returnLog) {
         foreach ($returnLog->items as $item) {
             if ($item->product) {
@@ -273,7 +259,6 @@ class DSEInputController extends Controller
     
     Log::info('Available stock before new retur:', $availableStock);
     
-    // 2. VALIDASI RETUR TIDAK BOLEH LEBIH BESAR DARI STOK
     $kpInputs = $request->input('retur.kp', []);
     $vInputs = $request->input('retur.v', []);
     
@@ -295,7 +280,6 @@ class DSEInputController extends Controller
     $productsMap = $this->getProductsMap();
     Log::info('Products Map:', $productsMap->toArray());
     
-    // Validasi setiap item retur
     foreach ($allReturInputs as $inputKey => $quantity) {
         $quantity = (int) $quantity;
         
@@ -303,11 +287,9 @@ class DSEInputController extends Controller
             $productCode = $this->productMapping[$inputKey] ?? null;
             
             if ($productCode && $productsMap->has($productCode)) {
-                // Cek stok tersedia
                 $available = $availableStock[$productCode] ?? 0;
                 
                 if ($quantity > $available) {
-                    // Cari nama produk untuk pesan error yang lebih informatif
                     $product = Product::where('product_code', $productCode)->first();
                     $productName = $product ? $product->product_name : $productCode;
                     
@@ -319,13 +301,11 @@ class DSEInputController extends Controller
         }
     }
     
-    // Jika ada error validasi, kembalikan dengan error
     if (!empty($customErrors)) {
         Log::error('Business validation failed:', $customErrors);
         return back()->with('custom_errors', $customErrors)->withInput();
     }
     
-    // 3. PROSES SIMPAN RETUR JIKA VALIDASI LOLOS
     DB::beginTransaction();
     try {
         $returnLog = ReturnLog::create([
@@ -431,7 +411,6 @@ class DSEInputController extends Controller
             'regex:/^[0-9]+$/', 
         ],
         'no_telepon_darurat' =>  [
-            'required',
             'nullable', 
             'string', 
             'max:12', 
@@ -474,7 +453,6 @@ class DSEInputController extends Controller
             Log::info('Display photo stored: ' . $displayPhotoPath);
         }
 
-        // Data untuk disimpan
         $outletData = [
             'name' => $request->nama_outlet,
             'address' => $request->alamat_outlet,

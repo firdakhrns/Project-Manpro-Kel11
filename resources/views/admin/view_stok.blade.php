@@ -196,7 +196,6 @@
                         <div class="input-group"><label for="v_15gb_7h">15 GB/7 hari</label><input type="number" id="v_15gb_7h" name="stok[v][15gb_7h]" placeholder="Masukkan jumlah" min="0" value="0"></div>
                     </div>
                 </div>
-
             </div>
 
             <div class="text-center mt-10">
@@ -207,10 +206,25 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = this.value;
+            
+                if (value.length > 1 && value.startsWith('0')) {
+                    this.value = value.replace(/^0+/, '') || '0';
+                }
+            });
+        
+            input.addEventListener('blur', function(e) {
+                if (this.value !== '') {
+                    this.value = parseInt(this.value, 10) || 0;
+                }
+            });
+        });
+        
         const dseSelect = document.getElementById('dse_id');
         const outletSelect = document.getElementById('outlet_id_select');
         
-        // --- 1. Validasi Submit Form ---
         const form = document.getElementById('stockFormAdmin');
         if (form) {
             form.addEventListener('submit', function(e) {
@@ -222,10 +236,8 @@
             });
         }
         
-        // --- 2. AJAX DSE Change Listener ---
         dseSelect.addEventListener('change', function() {
             const selectedDSEId = this.value;
-            // Kosongkan Outlet dan tampilkan loading
             outletSelect.innerHTML = '<option value="">Memuat Outlet...</option>'; 
 
             if (!selectedDSEId) {
@@ -233,8 +245,6 @@
                 return;
             }
 
-            // Kirim permintaan AJAX ke Controller Laravel
-            // PERHATIAN: Pastikan rute ini telah didefinisikan di routes/web.php
             fetch('/admin/get-outlets-by-dse?dse_id=' + selectedDSEId)
                 .then(response => {
                     if (!response.ok) {
@@ -243,7 +253,6 @@
                     return response.json();
                 })
                 .then(outlets => {
-                    // Kosongkan dan isi ulang dropdown Outlet
                     outletSelect.innerHTML = '<option value="">Pilih Outlet</option>';
 
                     if (outlets.length === 0) {
@@ -264,13 +273,11 @@
                 });
         });
 
-        // --- 3. Logika Category Toggle ---
         const categoryButtons = document.querySelectorAll('.category-button');
         const kpSection = document.getElementById('kartu-perdana-section');
         const voucherSection = document.getElementById('voucher-section');
 
         function showCategory(category) {
-            // Hapus manipulasi grid-template-columns. Kita hanya perlu mengontrol display.
             if (category === 'all') {
                 kpSection.style.display = 'block';
                 voucherSection.style.display = 'block';
@@ -291,7 +298,6 @@
             });
         });
 
-        // Set default view ke 'all' saat halaman dimuat
         showCategory('all');
     });
 </script>

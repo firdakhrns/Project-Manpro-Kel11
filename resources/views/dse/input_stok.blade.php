@@ -78,7 +78,7 @@
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         }
         .header-content {
-            padding-top: 40px; /* Memberi ruang di bawah tombol back */
+            padding-top: 40px; 
         }
     </style>
 </head>
@@ -94,11 +94,32 @@
             <p class="text-gray-700 text-center mb-8">Silakan isi sesuai jumlah di tangan Anda</p>
         </div>
 
+        @if (session('success'))
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+                <strong class="font-bold">Berhasil!</strong>
+                <span class="block sm:inline">{{ session('success') }}</span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                    <svg class="fill-current h-6 w-6 text-green-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" onclick="this.parentElement.parentElement.style.display='none';"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.497l-2.651 3.352a1.2 1.2 0 1 1-1.697-1.697l3.352-2.651-3.352-2.651a1.2 1.2 0 1 1 1.697-1.697l2.651 3.352 2.651-3.352a1.2 1.2 0 1 1 1.697 1.697L11.497 10l3.352 2.651a1.2 1.2 0 0 1 0 1.697z"/></svg>
+                </span>
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+                <strong class="font-bold">Gagal!</strong>
+                <span class="block sm:inline">Pencatatan stok gagal: Cek kembali input Anda.</span>
+                <ul>
+                    @foreach ($errors->all() as $error)
+                        <li>- {{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <div class="mb-6">
             <label class="block text-sm font-bold text-gray-800 mb-2" for="outlet_select">Pilih Outlet</label>
             <select name="outlet_select" id="outlet_select" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
                 <option value="">Pilih Outlet</option>
-                {{-- Asumsi variabel $outlets tersedia dari Controller Laravel --}}
                 @foreach($outlets ?? [] as $outlet)
                     <option value="{{ $outlet->id }}">{{ $outlet->name }}</option>
                 @endforeach
@@ -166,26 +187,39 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = this.value;
+            
+                if (value.length > 1 && value.startsWith('0')) {
+                    this.value = value.replace(/^0+/, '') || '0';
+                }
+            });
+        
+            input.addEventListener('blur', function(e) {
+                if (this.value !== '') {
+                    this.value = parseInt(this.value, 10) || 0;
+                }
+            });
+        });
+
             const categoryButtons = document.querySelectorAll('.category-button');
             const sections = document.querySelectorAll('.category-section');
             const outletSelect = document.getElementById('outlet_select');
             const outletHidden = document.getElementById('outlet_id_hidden');
             const form = document.querySelector('form');
 
-            // 1. Update hidden outlet_id dan simpan di localStorage
             outletSelect.addEventListener('change', function() {
                 outletHidden.value = this.value;
                 localStorage.setItem('selected_outlet_id', this.value);
             });
             
-            // 2. Load selected outlet dari localStorage (agar tidak reset saat navigasi)
             const storedOutletId = localStorage.getItem('selected_outlet_id');
             if (storedOutletId) {
                 outletSelect.value = storedOutletId;
                 outletHidden.value = storedOutletId;
             }
 
-            // 3. Logika Show/Hide Kategori
             function showCategory(category) {
                 sections.forEach(section => {
                     const isPerdana = section.id === 'kartu-perdana-section';
